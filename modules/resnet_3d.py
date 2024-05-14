@@ -208,7 +208,7 @@ class ShallowResnet3d(nn.Module):
         blocks: List[int]=[2, 2, 2, 2],
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
-        dowmsample_way: str='maxpool',
+        downsample_way: str='maxpool',
     ) -> None:
         super(ShallowResnet3d, self).__init__()
         
@@ -229,7 +229,7 @@ class ShallowResnet3d(nn.Module):
                     curr_dim, dims[idx],
                     ac_fun=ac_func,
                     downsample=downsample,
-                    downsample_way=dowmsample_way,
+                    downsample_way=downsample_way,
                 ))
                 curr_dim = dims[idx]
     

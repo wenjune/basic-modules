@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:39:33
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-13 22:42:38
+LastEditTime: 2024-05-14 09:45:36
 FilePath: resnet_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
