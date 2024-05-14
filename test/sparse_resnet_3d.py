@@ -1,3 +1,13 @@
+'''
+Author: wenjun-VCC
+Date: 2024-05-14 19:26:33
+LastEditors: wenjun-VCC
+LastEditTime: 2024-05-14 20:43:36
+FilePath: sparse_resnet_3d.py
+Description: __discription:__
+Email: wenjun.9707@gmail.com
+Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
+'''
 import torch
 import torch.nn as nn
 from spconv.pytorch import SparseConvTensor
@@ -12,8 +22,8 @@ from modules.sparse_resnet_3d import spresnet18_3d, spresnet34_3d, spresnet50_3d
 
 if __name__ == '__main__':
     
+    # init a sparse tensor
     features = torch.randn(6, 3).to('cuda')
-
     indices = torch.tensor(
         [[0, 14, 64, 32],
         [0, 32, 11, 23],
@@ -22,15 +32,17 @@ if __name__ == '__main__':
         [0, 26, 15, 19],
         [0, 7, 29, 53]]
     ).to(torch.int32).to('cuda')
-
-    t = SparseConvTensor(
+    sptensor = SparseConvTensor(
         features=features,
         indices=indices,
         spatial_shape=(64, 64, 64),
         batch_size=1,
     )
-
-    model = spresnet50_3d(3, 1000, downsample_way='conv').to('cuda')
-    out = model(t)
     
-    print(out.dense().shape)  # [6, 1000]
+    # init module
+    model = spresnet50_3d(3, 1000, downsample_way='conv').to('cuda')
+    out = model(sptensor)
+    
+    print(out.dense().shape)
+    # torch.Size([1, 1000])
+    # spatial_shape: (4, 4, 4)
