@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-13 22:42:16
+LastEditTime: 2024-05-14 15:49:47
 FilePath: transformer.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -27,26 +27,26 @@ class FeedForward(nn.Module):
     
     def __init__(
         self,
-        in_dim: int,
+        dim: int,
         hidden_dim: int=2048,
         ac_func=nn.ReLU,
         dropout: float=None,
     ) -> None:
         super(FeedForward, self).__init__()
         
-        self.fc1 = nn.Linear(in_features=in_dim, out_features=hidden_dim)
+        self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
         self.ac_func = ac_func()
         self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
-        self.fc2 = nn.Linear(in_features=hidden_dim, out_features=in_dim)
+        self.fc2 = nn.Linear(in_features=hidden_dim, out_features=dim)
         
     
     @beartype   
     def forward(
         self,
-        input: TensorType['bs','sl', 'dim', float],
+        x: TensorType['bs','sl', 'dim', float],
     ):
         
-        out = self.fc1(input)
+        out = self.fc1(x)
         out = self.ac_func(out)
         out = self.dropout(out)
         out = self.fc2(out)
@@ -61,7 +61,7 @@ class MultiHeadAttention(nn.Module):
         self,
         d_model: int,
         n_heads: int=8,
-        qkv_bias: bool=True,
+        qkv_bias: bool=False,
         is_causal: bool=False,
         atten_dropout: float=None,
     ) -> None:
@@ -91,17 +91,19 @@ class MultiHeadAttention(nn.Module):
         query: TensorType['b', 'ql', 'dim', float],
         key: TensorType['b', 'kl', 'dim', float],
         value: TensorType['b', 'vl', 'dim', float],
-        key_padding_mask: Optional[TensorType['b', 'kl', bool]]=None,
-        causal_mask: Optional[TensorType['b', 1, 'ql', 'kl', bool]]=None,
+        *,  # force to use keyword arguments
+        key_padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
+        causal_mask: Optional[TensorType[1, 1, 'ql', 'kl', bool]]=None,
     ):
         ''' 
             Params:
-                query   : [bs, q_len, dk, float]
-                key     : [bs, k_len, dk, float]
-                value   : [bs, v_len, dk, float]
-                mask    : [bs, k_len, bool]
+                query: [bs, q_len, dk, float]
+                key: [bs, k_len, dk, float]
+                value: [bs, v_len, dk, float]
+                key_padding_mask: [bs, 1, 1, k_len, bool]
+                causal_mask: [1, 1, q_len, k_len, bool]
             Return:
-                output      : [bs, q_len, (nh*dk)]
+                output: [bs, q_len, (nh*dk)]
                 atten_scores: [bs, nh, q_len, k_len]
         '''
         # reshape (Q, K, V) to multi-head vector
@@ -112,19 +114,29 @@ class MultiHeadAttention(nn.Module):
         # value : ->[bs, value_len, heads, dk]
         value = rearrange(value, 'b v (h dk) -> b v h dk', dk=self.d_k)
         
+        # calculate attention scores: [batch_size, heads, query_len, key_len]
         attention_scores = torch.einsum('nqhd, nkhd -> nhqk', [query, key]) * self.scale
-        # [batch_size, heads, query_len, key_len]
         
         # apply masks
-        attention_scores = self._apply_mask(attention_scores, key_padding_mask)
-        attention_scores = self._apply_mask(attention_scores, causal_mask)
+        # apply key padding mask
+        attention_scores = self._apply_mask(
+            score=attention_scores,
+            mask=key_padding_mask,
+        )
+        # apply causal mask
+        attention_scores = self._apply_mask(
+            score=attention_scores,
+            mask=causal_mask,
+        )
 
+        # calculate attention distribution
         attention_scores = attention_scores.softmax(dim=-1)
-        # attention_scores : [bs, heads, q_len, k_len]
         
         attention_scores = self.dropout(attention_scores)
         
-        # key_len = value_len
+        # attention_scores = [batch_size, heads, query_len, key_len]
+        # value = [batch_size, value_len, heads, d_k]
+        # key_len = value_len [batch_size, query_len, heads, d_k]
         output = torch.einsum('nhql, nlhd -> nqhd', [attention_scores, value])
         output = rearrange(output, 'b s h d -> b s (h d)')
         
@@ -134,28 +146,30 @@ class MultiHeadAttention(nn.Module):
     @beartype
     def _apply_mask(
         self,
-        attention: TensorType['bs', 'ql', 'kl', float],
-        mask: TensorType['a', 'b', 'kl', bool],
+        *,  # force to use keyword arguments
+        score: TensorType['bs', 'h', 'ql', 'kl', float],
+        mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
     ):
         
         if mask is not None:
             
-            attention = attention.masked_fill(~mask, float(-1e10))
+            score = score.masked_fill(~mask, float(-1e10))
             
-            return attention
+            return score
         
         else:
             
-            return attention
+            return score
         
         
     @beartype
     def forward(
         self,
-        query: TensorType['b', 'ql', 'dim', float],
-        key: TensorType['b', 'kl', 'dim', float],
-        value: TensorType['b', 'vl', 'dim', float],
-        key_padding_mask: Optional[TensorType['b', 'kl', bool]]=None,  # key padding
+        query: TensorType['bs', 'ql', 'dim', float],
+        key: TensorType['bs', 'kl', 'dim', float],
+        value: TensorType['bs', 'vl', 'dim', float],
+        *,  # force to use keyword arguments
+        key_padding_mask: Optional[TensorType['bs', 'kl', bool]]=None,  # key padding
         use_cache: bool=False,
         kv_cache=None,  # using kv_cache to accelerate the inference process
     ):
@@ -205,6 +219,7 @@ class MultiHeadAttention(nn.Module):
         
         if self.is_causal:
             # usually we just use causal mask in decoder self attention
+            # ql = kl = vl
             causal_mask = self._make_causal_mask(query)
             causal_mask = rearrange(causal_mask, '... -> 1 1 ...')  # [1, 1, sl, sl]
             
@@ -245,7 +260,6 @@ class MultiHeadAttention(nn.Module):
         return mask
     
 
-    
 
 class EncoderBlock(nn.Module):
     
@@ -254,12 +268,16 @@ class EncoderBlock(nn.Module):
         d_model: int,
         n_heads: int=8,
         hidden_dim: int=2048,
-        qkv_bias: bool=True,
+        qkv_bias: bool=False,
         ffd_dropout: float=None,
         atten_dropout: float=None,
         ac_func=nn.ReLU,
+        norm=nn.LayerNorm,
+        norm_dim: int=None,
     ) -> None:
         super(EncoderBlock, self).__init__()
+        
+        self.norm_dim = d_model if norm_dim is None else norm_dim
         
         self.self_atten_block = MultiHeadAttention(
             d_model=d_model,
@@ -269,20 +287,21 @@ class EncoderBlock(nn.Module):
         )
         
         self.feed_forward_block = FeedForward(
-            d_model,
+            dim=d_model,
             hidden_dim=hidden_dim,
             dropout=ffd_dropout,
             ac_func=ac_func,
         )
         
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
+        self.norm1 = norm(self.norm_dim)
+        self.norm2 = norm(self.norm_dim)
     
     
     @beartype
     def forward(
         self,
         query: TensorType['b', 'sq', 'dim', float],
+        *,  # force to use keyword arguments
         src_mask: Optional[TensorType['b', 'sq', bool]]=None,
         return_scores: bool=False,
     ):
@@ -300,9 +319,7 @@ class EncoderBlock(nn.Module):
         # in transformer encoder, we just have the source mask to mask padding tokens
         # and in inference process we didn't use cache
         attention, _, attention_scores = self.self_atten_block(
-            query=query,
-            key=query,
-            value=query,
+            query, query, query,
             key_padding_mask=src_mask,
         )
         
@@ -334,9 +351,12 @@ class DecoderBlock(nn.Module):
         is_cross_atten: bool=False,
         is_causal: bool=True,
         ac_func=nn.ReLU,
+        norm=nn.LayerNorm,
+        norm_dim: int=None,
     ) -> None:
         super(DecoderBlock, self).__init__()
         
+        self.norm_dim = d_model if norm_dim is None else norm_dim
         self.is_cross_atten = is_cross_atten
         self.is_causal = is_causal
         
@@ -356,21 +376,22 @@ class DecoderBlock(nn.Module):
         ) if is_cross_atten else nn.Identity()
         
         self.feed_forward_block = FeedForward(
-            in_dim=d_model,
+            dim=d_model,
             hidden_dim=hidden_dim,
             dropout=ffd_dropout,
             ac_func=ac_func,
         )
         
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model) if is_cross_atten else nn.Identity()
-        self.norm3 = nn.LayerNorm(d_model)
+        self.norm1 = norm(self.norm_dim)
+        self.norm2 = norm(self.norm_dim) if is_cross_atten else nn.Identity()
+        self.norm3 = norm(self.norm_dim)
     
     
     @beartype
     def forward(
         self,
         tgt: TensorType['bs', 'ql', 'dim', float],
+        *,  # force to use keyword arguments
         encoder_output: Optional[TensorType['bs', 'kl', 'dim', float]]=None,
         src_mask: Optional[TensorType['bs', 'kl', bool]]=None,
         tgt_mask: Optional[TensorType['bs', 'ql', bool]]=None,
@@ -386,9 +407,7 @@ class DecoderBlock(nn.Module):
         '''
         
         self_attention, new_cache, self_attention_scores = self.self_atten_block(
-            query=tgt,
-            key=tgt,
-            value=tgt,
+            tgt, tgt, tgt,
             key_padding_mask=tgt_mask,
             use_cache=use_cache,
             kv_cache=kv_cache,
@@ -401,9 +420,7 @@ class DecoderBlock(nn.Module):
         if self.is_cross_atten:
             
             cros_attention, _, cros_attention_scores = self.cross_atten_block(
-                query=tgt,
-                key=encoder_output,
-                value=encoder_output,
+                tgt, encoder_output, encoder_output,
                 key_padding_mask=src_mask,
             )
         
@@ -428,12 +445,16 @@ class TransformerEncoder(nn.Module):
         n_layers: int=12,
         n_heads: int=8,
         hidden_dim: int=2048,
-        qkv_bias: bool=True,
+        qkv_bias: bool=False,
         ffd_dropout: float=None,
         atten_dropout: float=None,
         ac_func=nn.ReLU,
+        norm=nn.LayerNorm,
+        norm_dim: int=None,
     ) -> None:
         super(TransformerEncoder, self).__init__()
+        
+        self.norm_dim = d_model if norm_dim is None else norm_dim
         
         self.layers = nn.ModuleList([EncoderBlock(
             d_model=d_model,
@@ -443,6 +464,8 @@ class TransformerEncoder(nn.Module):
             ffd_dropout=ffd_dropout,
             atten_dropout=atten_dropout,
             ac_func=ac_func,
+            norm=norm,
+            norm_dim=self.norm_dim,
             ) for _ in range(n_layers)]
         )
     
@@ -451,6 +474,7 @@ class TransformerEncoder(nn.Module):
     def forward(
         self,
         src: TensorType['bs', 'sl', 'dim', float],
+        *,  # force to use keyword arguments
         src_mask: Optional[TensorType['bs', 'sl', bool]]=None,
         return_scores: bool=False
     ):
@@ -486,7 +510,7 @@ class TransformerDecoder(nn.Module):
         d_model: int,
         n_layers: int=12,
         n_heads: int=8,
-        qkv_bias: bool=True,
+        qkv_bias: bool=False,
         hidden_dim: int=2048,
         ffd_dropout: float=None,
         self_atten_dropout: float=None,
@@ -494,9 +518,12 @@ class TransformerDecoder(nn.Module):
         is_cross_atten: bool=False,
         is_causal: bool=True,
         ac_func=nn.ReLU,
+        norm=nn.LayerNorm,
+        norm_dim: int=None,
     ) -> None:
         super(TransformerDecoder, self).__init__()
         
+        self.norm_dim = d_model if norm_dim is None else norm_dim
         self.is_cross_atten = is_cross_atten
         self.n_layers = n_layers
         
@@ -511,6 +538,8 @@ class TransformerDecoder(nn.Module):
             is_cross_atten=is_cross_atten,
             is_causal=is_causal,
             ac_func=ac_func,
+            norm=norm,
+            norm_dim=self.norm_dim,
             ) for _ in range(n_layers)]
         )
     
@@ -519,6 +548,7 @@ class TransformerDecoder(nn.Module):
     def forward(
         self,
         tgt: TensorType['bs', 'ql', 'dim', float],
+        *,  # force to use keyword arguments
         encoder_output: Optional[TensorType['bs', 'kl', 'dim', float]]=None,
         src_mask: Optional[TensorType['bs', 'kl', bool]]=None,
         tgt_mask: Optional[TensorType['bs', 'ql', bool]]=None,
@@ -594,7 +624,6 @@ class TransformerDecoder(nn.Module):
 
 
 
-
 def top_k_logits(logits: torch.Tensor, k: int) -> torch.Tensor:
     """Masks logits such that logits not in top-k are small
 
@@ -613,7 +642,6 @@ def top_k_logits(logits: torch.Tensor, k: int) -> torch.Tensor:
         k_largest = torch.min(values)
         logits = torch.where(torch.le(logits, k_largest), torch.ones_like(logits) * -1e9, logits)
         return logits
-
 
 def top_p_logits(logits: torch.Tensor, p: float) -> torch.Tensor:
     """Masks logits using nucleus (top-p) sampling
@@ -638,5 +666,6 @@ def top_p_logits(logits: torch.Tensor, p: float) -> torch.Tensor:
         sorted_indices_to_remove = (cumulative_probs > p).to(logits.dtype)
         logits_ordered = sorted_logits - sorted_indices_to_remove * 1e9
         logits = logits_ordered.gather(1, sorted_indices.argsort(-1))
+        
         return torch.reshape(logits, [-1, seq, dim])
 
