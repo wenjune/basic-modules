@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:43:44
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-14 10:12:42
+LastEditTime: 2024-05-15 21:46:18
 FilePath: resnet_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -62,6 +62,7 @@ ResnetCustom = ShallowResnet1d(
     blocks=[2, 2, 2, 2, 2],  # 5 layers in total
     dims=[32, 64, 128, 256, 384],
     ac_func=nn.ReLU,
+    norm=nn.GroupNorm,
 )
 
 

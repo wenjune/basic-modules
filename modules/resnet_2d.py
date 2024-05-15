@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:40:45
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-13 22:42:28
+LastEditTime: 2024-05-15 22:05:15
 FilePath: resnet_2d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -21,17 +21,25 @@ class BasicBlock2d(nn.Module):
     def __init__(
         self,
         in_dims: int,
-        out_dims: int,
+        out_dims: int=None,
         kernel_size: int=7,
-        ac_func=nn.ReLU
+        ac_func=nn.ReLU,
+        norm=nn.BatchNorm2d,
+        groups: int=8,
     ) -> None:
         super(BasicBlock2d, self).__init__()
 
         assert kernel_size % 2 != 0, 'The kernel_size should be odd.'
         self.padding = kernel_size//2
         
-        self.basic_conv = nn.Conv2d(in_dims, out_dims, kernel_size=kernel_size, padding=self.padding)
-        self.norm1 = nn.BatchNorm2d(out_dims)
+        self.out_dims = in_dims if out_dims is None else out_dims
+        
+        if norm == nn.GroupNorm:
+            self.norm = norm(groups, self.out_dims)
+        else:
+            self.norm = norm(self.out_dims)
+        
+        self.basic_conv = nn.Conv2d(in_dims, self.out_dims, kernel_size=kernel_size, padding=self.padding)
         self.ac_func = ac_func()
         self.out_fc = nn.Conv2d(out_dims, out_dims, kernel_size=1)
     
@@ -43,7 +51,7 @@ class BasicBlock2d(nn.Module):
     ):
             
         x = self.basic_conv(x)
-        x = self.norm1(x)
+        x = self.norm(x)
         x = self.ac_func(x)
         x = self.out_fc(x)
         
@@ -58,7 +66,9 @@ class Block2d(nn.Module):
         self,
         dims: int,
         out_dims: int=None,
-        kernel_size: int=3
+        kernel_size: int=3,
+        norm=nn.BatchNorm2d,
+        groups: int=8,
     ) -> None:
         super(Block2d, self).__init__()
         
@@ -68,8 +78,12 @@ class Block2d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
+        if norm == nn.GroupNorm:
+            self.norm = norm(groups, self.out_dims)
+        else:
+            self.norm = norm(self.out_dims)
+        
         self.conv = nn.Conv2d(self.dims, self.out_dims, kernel_size=kernel_size, padding=self.padding)
-        self.norm = nn.BatchNorm2d(self.out_dims)
     
     
     @beartype
@@ -93,7 +107,9 @@ class ShallowResnetBlock2d(nn.Module):
         out_dims: int=None,
         downsample: bool=False,
         downsample_way: str='maxpool',
-        ac_fun=nn.ReLU
+        ac_fun=nn.ReLU,
+        norm=nn.BatchNorm2d,
+        groups: int=8,
     ) -> None:
         super(ShallowResnetBlock2d, self).__init__()
         
@@ -114,9 +130,21 @@ class ShallowResnetBlock2d(nn.Module):
             dimchange_layer,
         )
         
-        self.block1 = Block2d(dims=dims, out_dims=dims, kernel_size=3)
+        self.block1 = Block2d(
+            dims=dims,
+            out_dims=dims,
+            kernel_size=3,
+            norm=norm,
+            groups=groups,
+        )
         self.downsample = self.downsample_way if downsample else nn.Identity()
-        self.block2 = Block2d(dims=dims, out_dims=self.out_dims, kernel_size=3)
+        self.block2 = Block2d(
+            dims=dims,
+            out_dims=self.out_dims,
+            kernel_size=3,
+            norm=norm,
+            groups=groups,
+        )
         
         self.ac_func = ac_fun()
         
@@ -148,7 +176,9 @@ class DeepResnetBlock2d(nn.Module):
         out_dims: int=None,
         downsample: bool=False,
         downsample_way: str='maxpool',
-        ac_fun=nn.ReLU
+        ac_fun=nn.ReLU,
+        norm=nn.BatchNorm2d,
+        groups: int=8,
     ) -> None:
         super(DeepResnetBlock2d, self).__init__()
         
@@ -169,10 +199,28 @@ class DeepResnetBlock2d(nn.Module):
             dimchange_layer,
         )
         
-        self.block1 = Block2d(dims=dims, out_dims=dims, kernel_size=3)
-        self.block2 = Block2d(dims=dims, out_dims=dims, kernel_size=3)
+        self.block1 = Block2d(
+            dims=dims,
+            out_dims=dims,
+            kernel_size=3,
+            norm=norm,
+            groups=groups,
+        )
+        self.block2 = Block2d(
+            dims=dims,
+            out_dims=dims,
+            kernel_size=3,
+            norm=norm,
+            groups=groups,
+        )
         self.downsample = self.downsample_way if downsample else nn.Identity()
-        self.block3 = Block2d(dims=dims, out_dims=self.out_dims, kernel_size=3)
+        self.block3 = Block2d(
+            dims=dims,
+            out_dims=self.out_dims,
+            kernel_size=3,
+            norm=norm,
+            groups=groups,
+        )
         
         self.ac_func = ac_fun()
         
@@ -208,6 +256,8 @@ class ShallowResnet2d(nn.Module):
         blocks: List[int]=[2, 2, 2, 2],
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
+        norm=nn.BatchNorm2d,
+        groups: int=8,
         downsample_way: str='maxpool'
     ) -> None:
         super(ShallowResnet2d, self).__init__()
@@ -215,7 +265,13 @@ class ShallowResnet2d(nn.Module):
         self.blocks = blocks
         self.dims = dims
         
-        self.basic_conv = BasicBlock2d(in_dims, basic_out_dims)
+        self.basic_conv = BasicBlock2d(
+            in_dims,
+            basic_out_dims,
+            ac_func=ac_func,
+            norm=norm,
+            groups=groups,
+        )
         self.proj_out_conv = nn.Identity() if proj_out_dims is None else nn.Conv2d(dims[-1], proj_out_dims, kernel_size=1, bias=False)
         
         self.resnet_module_list = nn.ModuleList([])
@@ -230,6 +286,8 @@ class ShallowResnet2d(nn.Module):
                     ac_fun=ac_func,
                     downsample=downsample,
                     downsample_way=downsample_way,
+                    norm=norm,
+                    groups=groups,
                 ))
                 curr_dim = dims[idx]
     
@@ -261,6 +319,8 @@ class DeepResnet2d(nn.Module):
         blocks: List[int]=[3, 4, 6, 3],
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
+        norm=nn.BatchNorm2d,
+        groups: int=8,
         downsample_way: str='maxpool',
     ) -> None:
         super().__init__()
@@ -268,7 +328,13 @@ class DeepResnet2d(nn.Module):
         self.blocks = blocks
         self.dims = dims
         
-        self.basic_conv = BasicBlock2d(in_dims, basic_out_dims)
+        self.basic_conv = BasicBlock2d(
+            in_dims,
+            basic_out_dims,
+            ac_func=ac_func,
+            norm=norm,
+            groups=groups,
+        )
         self.proj_out_conv = nn.Identity() if proj_out_dims is None else nn.Conv2d(dims[-1], proj_out_dims, kernel_size=1, bias=False)
         
         self.resnet_module_list = nn.ModuleList([])
@@ -283,6 +349,8 @@ class DeepResnet2d(nn.Module):
                     downsample=downsample,
                     ac_fun=ac_func,
                     downsample_way=downsample_way,
+                    norm=norm,
+                    groups=groups,
                 ))
                 curr_dim = dims[idx]
             
@@ -311,6 +379,8 @@ def resnet18_2d(
     basic_block_dims: int=32,
     dims: List[int]=[64, 128, 156, 384],
     ac_func=nn.ReLU,
+    norm=nn.BatchNorm2d,
+    groups: int=8,
     downsample_way: str='maxpool',
 ):
     
@@ -322,6 +392,8 @@ def resnet18_2d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        norm=norm,
+        groups=groups,
     )
     
     return module
@@ -333,6 +405,8 @@ def resnet34_2d(
     basic_block_dims: int=32,
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
+    norm=nn.BatchNorm2d,
+    groups: int=8,
     downsample_way: str='maxpool',
 ):
     
@@ -344,6 +418,8 @@ def resnet34_2d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        norm=norm,
+        groups=groups,
     )
     
     return module
@@ -355,6 +431,8 @@ def resnet50_2d(
     basic_block_dims: int=32,
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
+    norm=nn.BatchNorm2d,
+    groups: int=8,
     downsample_way: str='maxpool',
 ):
     
@@ -366,6 +444,8 @@ def resnet50_2d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        norm=norm,
+        groups=groups,
     )
     
     return module
@@ -377,6 +457,8 @@ def resnet101_2d(
     basic_block_dims: int=32,
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
+    norm=nn.BatchNorm2d,
+    groups: int=8,
     downsample_way: str='maxpool',
 ):
     
@@ -388,6 +470,8 @@ def resnet101_2d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        norm=norm,
+        groups=groups,
     )
     
     return module
@@ -399,6 +483,8 @@ def resnet152_2d(
     basic_block_dims: int=32,
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
+    norm=nn.BatchNorm2d,
+    groups: int=8,
     downsample_way: str='maxpool',
 ):
     
@@ -410,6 +496,8 @@ def resnet152_2d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        norm=norm,
+        groups=groups,
     )
     
     return module

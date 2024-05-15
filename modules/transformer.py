@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-14 15:49:47
+LastEditTime: 2024-05-15 21:25:55
 FilePath: transformer.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -273,11 +273,8 @@ class EncoderBlock(nn.Module):
         atten_dropout: float=None,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
-        norm_dim: int=None,
     ) -> None:
         super(EncoderBlock, self).__init__()
-        
-        self.norm_dim = d_model if norm_dim is None else norm_dim
         
         self.self_atten_block = MultiHeadAttention(
             d_model=d_model,
@@ -293,8 +290,8 @@ class EncoderBlock(nn.Module):
             ac_func=ac_func,
         )
         
-        self.norm1 = norm(self.norm_dim)
-        self.norm2 = norm(self.norm_dim)
+        self.norm1 = norm(d_model)
+        self.norm2 = norm(d_model)
     
     
     @beartype
@@ -352,11 +349,9 @@ class DecoderBlock(nn.Module):
         is_causal: bool=True,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
-        norm_dim: int=None,
     ) -> None:
         super(DecoderBlock, self).__init__()
         
-        self.norm_dim = d_model if norm_dim is None else norm_dim
         self.is_cross_atten = is_cross_atten
         self.is_causal = is_causal
         
@@ -382,9 +377,9 @@ class DecoderBlock(nn.Module):
             ac_func=ac_func,
         )
         
-        self.norm1 = norm(self.norm_dim)
-        self.norm2 = norm(self.norm_dim) if is_cross_atten else nn.Identity()
-        self.norm3 = norm(self.norm_dim)
+        self.norm1 = norm(d_model)
+        self.norm2 = norm(d_model) if is_cross_atten else nn.Identity()
+        self.norm3 = norm(d_model)
     
     
     @beartype
@@ -450,11 +445,8 @@ class TransformerEncoder(nn.Module):
         atten_dropout: float=None,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
-        norm_dim: int=None,
     ) -> None:
         super(TransformerEncoder, self).__init__()
-        
-        self.norm_dim = d_model if norm_dim is None else norm_dim
         
         self.layers = nn.ModuleList([EncoderBlock(
             d_model=d_model,
@@ -465,7 +457,6 @@ class TransformerEncoder(nn.Module):
             atten_dropout=atten_dropout,
             ac_func=ac_func,
             norm=norm,
-            norm_dim=self.norm_dim,
             ) for _ in range(n_layers)]
         )
     
@@ -519,11 +510,9 @@ class TransformerDecoder(nn.Module):
         is_causal: bool=True,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
-        norm_dim: int=None,
     ) -> None:
         super(TransformerDecoder, self).__init__()
         
-        self.norm_dim = d_model if norm_dim is None else norm_dim
         self.is_cross_atten = is_cross_atten
         self.n_layers = n_layers
         
@@ -539,7 +528,6 @@ class TransformerDecoder(nn.Module):
             is_causal=is_causal,
             ac_func=ac_func,
             norm=norm,
-            norm_dim=self.norm_dim,
             ) for _ in range(n_layers)]
         )
     
