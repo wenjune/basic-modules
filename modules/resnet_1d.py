@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:39:33
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-14 09:45:36
+LastEditTime: 2024-05-15 20:19:38
 FilePath: resnet_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -56,19 +56,28 @@ class BasicBlock1d(nn.Module):
         self,
         in_dims: int,
         out_dims: int,
-        groups: int=8,
         kernel_size: int=7,
-        ac_func=nn.ReLU
+        ac_func=nn.ReLU,
+        norm=nn.GroupNorm,
+        norm_dim: int=None,
+        groups: int=8,
     ) -> None:
         super(BasicBlock1d, self).__init__()
 
         assert kernel_size % 2 != 0, 'The kernel_size should be odd.'
         self.padding = kernel_size//2
         
-        self.basic_conv = nn.Conv1d(in_dims, out_dims, kernel_size=kernel_size, padding=self.padding)
-        self.norm1 = nn.GroupNorm(groups, out_dims)
+        self.out_dims = in_dims if out_dims is None else out_dims
+        
+        self.norm_dim = self.out_dims if norm_dim is None else norm_dim
+        if norm == nn.GroupNorm:
+            self.norm = norm(groups, self.norm_dim)
+        else:
+            self.norm = norm(self.norm_dim)
+        
+        self.basic_conv = nn.Conv1d(in_dims, self.out_dims, kernel_size=kernel_size, padding=self.padding)
         self.ac_func = ac_func()
-        self.out_fc = nn.Conv1d(out_dims, out_dims, kernel_size=1)
+        self.out_fc = nn.Conv1d(self.out_dims, self.out_dims, kernel_size=1)
     
     
     @beartype
@@ -83,7 +92,7 @@ class BasicBlock1d(nn.Module):
         if mask is not None:
             x = x.masked_fill(~mask, 0.)
             
-        x = self.norm1(x)
+        x = self.norm(x)
         x = self.ac_func(x)
         x = self.out_fc(x)
         
@@ -100,8 +109,10 @@ class Block1d(nn.Module):
         self,
         dims: int,
         out_dims: int=None,
+        kernel_size: int=3,
+        norm=nn.GroupNorm,
+        norm_dim: int=None,
         groups: int=8,
-        kernel_size: int=3
     ) -> None:
         super(Block1d, self).__init__()
         
@@ -110,10 +121,14 @@ class Block1d(nn.Module):
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
-        self.groups = groups
+        
+        self.norm_dim = self.out_dims if norm_dim is None else norm_dim
+        if norm == nn.GroupNorm:
+            self.norm = norm(groups, self.norm_dim)
+        else:
+            self.norm = norm(self.norm_dim)
         
         self.conv = nn.Conv1d(self.dims, self.out_dims, kernel_size=kernel_size, padding=self.padding)
-        self.norm = nn.GroupNorm(self.groups, self.out_dims)
        
     
     @beartype
@@ -139,19 +154,35 @@ class ShallowResnetBlock1d(nn.Module):
         self,
         dims: int,
         out_dims: int=None,
-        groups: int=8,
         ac_func=nn.ReLU,
+        norm=nn.GroupNorm,
+        norm_dim: int=None,
+        groups: int=8,
     ) -> None:
         super(ShallowResnetBlock1d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
-        self.groups = groups
         
         self.short_cut = nn.Identity() if out_dims is None else nn.Conv1d(dims, self.out_dims, kernel_size=1, bias=False)
         
-        self.block1 = Block1d(dims=dims, out_dims=dims, groups=groups, kernel_size=3)
-        self.block2 = Block1d(dims=dims, out_dims=self.out_dims, groups=groups, kernel_size=3)
+        self.block1 = Block1d(
+            dims=dims,
+            out_dims=dims,
+            kernel_size=3,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
+        
+        self.block2 = Block1d(
+            dims=dims,
+            out_dims=self.out_dims,
+            kernel_size=3,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
         
         self.ac_func = ac_func()
         
@@ -184,20 +215,42 @@ class DeepResnetBlock1d(nn.Module):
         self,
         dims: int,
         out_dims: int=None,
-        groups: int=8,
         ac_func=nn.ReLU,
+        norm=nn.GroupNorm,
+        norm_dim: int=None,
+        groups: int=8,
     ) -> None:
         super(DeepResnetBlock1d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
-        self.groups = groups
         
         self.short_cut = nn.Identity() if out_dims is None else nn.Conv1d(dims, self.out_dims, kernel_size=1, bias=False)
         
-        self.block1 = Block1d(dims=dims, out_dims=dims, groups=groups, kernel_size=3)
-        self.block2 = Block1d(dims=dims, out_dims=dims, groups=groups, kernel_size=3)
-        self.block3 = Block1d(dims=dims, out_dims=self.out_dims, groups=groups, kernel_size=3)
+        self.block1 = Block1d(
+            dims=dims,
+            out_dims=dims,
+            kernel_size=3,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
+        self.block2 = Block1d(
+            dims=dims,
+            out_dims=dims,
+            kernel_size=3,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
+        self.block3 = Block1d(
+            dims=dims,
+            out_dims=self.out_dims,
+            kernel_size=3,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
         
         self.ac_func = ac_func()
         
@@ -232,25 +285,41 @@ class ShallowResnet1d(nn.Module):
         self,
         in_dims: int,
         basic_out_dims: int,
-        groups: int=8,
         proj_out_dims: int=None,
         blocks: List[int]=[2, 2, 2, 2],
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
+        norm=nn.GroupNorm,
+        norm_dim: int=None,
+        groups: int=8,
     ) -> None:
         super(ShallowResnet1d, self).__init__()
         
         self.blocks = blocks
         self.dims = dims
         
-        self.basic_conv = BasicBlock1d(in_dims, basic_out_dims, ac_func=ac_func)
+        self.basic_conv = BasicBlock1d(
+            in_dims,
+            basic_out_dims,
+            ac_func=ac_func,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
         self.proj_out_conv = nn.Identity() if proj_out_dims is None else nn.Conv1d(dims[-1], proj_out_dims, kernel_size=1, bias=False)
         
         self.resnet_module_list = nn.ModuleList([])
         curr_dim = basic_out_dims
         for idx, _ in enumerate(blocks):
             for i in range(_):
-                self.resnet_module_list.append(ShallowResnetBlock1d(curr_dim, dims[idx], groups=groups, ac_func=ac_func))
+                self.resnet_module_list.append(ShallowResnetBlock1d(
+                    curr_dim,
+                    dims[idx],
+                    ac_func=ac_func,
+                    norm=norm,
+                    norm_dim=norm_dim,
+                    groups=groups,
+                ))
                 curr_dim = dims[idx]
     
     
@@ -283,25 +352,41 @@ class DeepResnet1d(nn.Module):
         self,
         in_dims: int,
         basic_out_dims: int,
-        groups: int=8,
         proj_out_dims: int=None,
         blocks: List[int]=[3, 4, 6, 3],
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
+        norm=nn.GroupNorm,
+        norm_dim: int=None,
+        groups: int=8,
     ) -> None:
         super().__init__()
         
         self.blocks = blocks
         self.dims = dims
         
-        self.basic_conv = BasicBlock1d(in_dims, basic_out_dims, ac_func=ac_func)
+        self.basic_conv = BasicBlock1d(
+            in_dims,
+            basic_out_dims,
+            ac_func=ac_func,
+            norm=norm,
+            norm_dim=norm_dim,
+            groups=groups,
+        )
         self.proj_out_conv = nn.Identity() if proj_out_dims is None else nn.Conv1d(dims[-1], proj_out_dims, kernel_size=1, bias=False)
         
         self.resnet_module_list = nn.ModuleList([])
         curr_dim = basic_out_dims
         for idx, _ in enumerate(blocks):
             for i in range(_):
-                self.resnet_module_list.append(DeepResnetBlock1d(curr_dim, dims[idx], groups=groups, ac_func=ac_func))
+                self.resnet_module_list.append(DeepResnetBlock1d(
+                    curr_dim,
+                    dims[idx],
+                    ac_func=ac_func,
+                    norm=norm,
+                    norm_dim=norm_dim,
+                    groups=groups,
+                ))
                 curr_dim = dims[idx]
             
     
@@ -343,19 +428,23 @@ def resnet18_1d(
     in_dims: int,
     proj_out_dims: int=1000,
     basic_block_dims: int=128,
-    groups: int=8,
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
+    norm=nn.GroupNorm,
+    norm_dim: int=None,
+    groups: int=8,
 ):
     
     module = ShallowResnet1d(
         in_dims=in_dims,
         basic_out_dims=basic_block_dims,
         proj_out_dims=proj_out_dims,
-        groups=groups,
         blocks=[2, 2, 2, 2],
         dims=dims,
-        ac_func=ac_func
+        ac_func=ac_func,
+        norm=norm,
+        norm_dim=norm_dim,
+        groups=groups,
     )
     
     return module
@@ -365,19 +454,23 @@ def resnet34_1d(
     in_dims: int,
     proj_out_dims: int=1000,
     basic_block_dims: int=128,
-    groups: int=8,
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
+    norm=nn.GroupNorm,
+    norm_dim: int=None,
+    groups: int=8,
 ):
     
     module = ShallowResnet1d(
         in_dims=in_dims,
         basic_out_dims=basic_block_dims,
         proj_out_dims=proj_out_dims,
-        groups=groups,
         blocks=[3, 4, 6, 3],
         dims=dims,
-        ac_func=ac_func
+        ac_func=ac_func,
+        norm=norm,
+        norm_dim=norm_dim,
+        groups=groups,
     )
     
     return module
@@ -387,19 +480,23 @@ def resnet50_1d(
     in_dims: int,
     proj_out_dims: int=1000,
     basic_block_dims: int=128,
-    groups: int=8,
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
+    norm=nn.GroupNorm,
+    norm_dim: int=None,
+    groups: int=8,
 ):
     
     module = DeepResnet1d(
         in_dims=in_dims,
         basic_out_dims=basic_block_dims,
         proj_out_dims=proj_out_dims,
-        groups=groups,
         blocks=[3, 4, 6, 3],
         dims=dims,
-        ac_func=ac_func
+        ac_func=ac_func,
+        norm=norm,
+        norm_dim=norm_dim,
+        groups=groups,
     )
     
     return module
@@ -409,19 +506,23 @@ def resnet101_1d(
     in_dims: int,
     proj_out_dims: int=1000,
     basic_block_dims: int=128,
-    groups: int=8,
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
+    norm=nn.GroupNorm,
+    norm_dim: int=None,
+    groups: int=8,
 ):
     
     module = DeepResnet1d(
         in_dims=in_dims,
         basic_out_dims=basic_block_dims,
         proj_out_dims=proj_out_dims,
-        groups=groups,
         blocks=[3, 4, 23, 3],
         dims=dims,
-        ac_func=ac_func
+        ac_func=ac_func,
+        norm=norm,
+        norm_dim=norm_dim,
+        groups=groups,
     )
     
     return module
@@ -431,21 +532,24 @@ def resnet152_1d(
     in_dims: int,
     proj_out_dims: int=1000,
     basic_block_dims: int=128,
-    groups: int=8,
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
+    norm=nn.GroupNorm,
+    norm_dim: int=None,
+    groups: int=8,
 ):
     
     module = DeepResnet1d(
         in_dims=in_dims,
         basic_out_dims=basic_block_dims,
         proj_out_dims=proj_out_dims,
-        groups=groups,
         blocks=[3, 8, 36, 3],
         dims=dims,
-        ac_func=ac_func
+        ac_func=ac_func,
+        norm=norm,
+        norm_dim=norm_dim,
+        groups=groups,
     )
     
     return module
-
 
