@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-15 21:25:55
+LastEditTime: 2024-05-16 17:05:29
 FilePath: transformer.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -481,7 +481,7 @@ class TransformerEncoder(nn.Module):
         """
         
         for block in self.layers:
-            x, attention_scores = block(
+            src, attention_scores = block(
                 query=src,
                 src_mask=src_mask,
                 return_scores=return_scores
@@ -489,9 +489,9 @@ class TransformerEncoder(nn.Module):
         
         if return_scores:
             
-            return x, attention_scores
+            return src, attention_scores
 
-        return x
+        return src
 
   
 class TransformerDecoder(nn.Module):
