@@ -105,9 +105,12 @@ class ShallowSparseResnetBlock3d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
-        self.downsample_way = spconv.SparseMaxPool3d(2, 2)
-        if downsample_way == 'conv':
-            self.downsample_way = spconv.SparseConv3d(dims, dims, kernel_size=2, stride=2, indice_key=f'{key}sc00')
+        if downsample:
+            self.downsample = spconv.SparseMaxPool3d(2, 2)
+            if downsample_way == 'conv':
+                self.downsample = spconv.SparseConv3d(dims, dims, kernel_size=2, stride=2, indice_key=f'{key}sc00')
+        else:
+            self.downsample = spconv.Identity()
         
         self.dimchange_layer = spconv.SubMConv3d(in_channels=dims, out_channels=self.out_dims, kernel_size=1, indice_key=f'{key}smc01')
         self.downsample_layer = spconv.SparseMaxPool3d(2, 2) if downsample else spconv.Identity()
@@ -118,8 +121,6 @@ class ShallowSparseResnetBlock3d(nn.Module):
         )
         
         self.block1 = SparseBlock3d(dims=dims, out_dims=self.out_dims, key=f'{key}block1', ac_func=ac_func)
-        
-        self.downsample = self.downsample_way if downsample else spconv.Identity()
         
         self.block2 = SparseBlock3d(dims=self.out_dims, key=f'{key}block2', ac_func=ac_func)
         
@@ -161,9 +162,12 @@ class DeepSparseResnetBlock3d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
-        self.downsample_way = spconv.SparseMaxPool3d(2, 2)
-        if downsample_way == 'conv':
-            self.downsample_way = spconv.SparseConv3d(dims, dims, kernel_size=2, stride=2, indice_key=f'{key}sc00')
+        if downsample:
+            self.downsample = spconv.SparseMaxPool3d(2, 2)
+            if downsample_way == 'conv':
+                self.downsample = spconv.SparseConv3d(dims, dims, kernel_size=2, stride=2, indice_key=f'{key}sc00')
+        else:
+            self.downsample = spconv.Identity()
         
         self.dimchange_layer = spconv.SubMConv3d(in_channels=dims, out_channels=self.out_dims, kernel_size=1, indice_key=f'{key}smc01')
         self.downsample_layer = spconv.SparseMaxPool3d(2, 2) if downsample else spconv.Identity()
@@ -175,7 +179,6 @@ class DeepSparseResnetBlock3d(nn.Module):
         
         self.block1 = SparseBlock3d(dims=dims, out_dims=self.out_dims, key=f'{key}block1', ac_func=ac_func)
         self.block2 = SparseBlock3d(dims=self.out_dims, key=f'{key}block2', ac_func=ac_func)
-        self.downsample = self.downsample_way if downsample else spconv.Identity()
         self.block3 = SparseBlock3d(dims=self.out_dims, key=f'{key}block3', ac_func=ac_func)
         
         self.ac_func = spconv.SparseSequential(

@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:19
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-13 22:42:04
+LastEditTime: 2024-05-17 12:14:05
 FilePath: resnet_3d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -100,11 +100,14 @@ class ShallowResnetBlock3d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
-        self.downsample_way = nn.MaxPool3d(2, 2)
-        if downsample_way == 'avgpool':
-            self.downsample_way = nn.AvgPool3d(2, 2)
-        if downsample_way == 'conv':
-            self.downsample_way = nn.Conv3d(dims, dims, kernel_size=2, stride=2)
+        if downsample:
+            self.downsample = nn.MaxPool3d(2, 2)
+            if downsample_way == 'avgpool':
+                self.downsample = nn.AvgPool3d(2, 2)
+            if downsample_way == 'conv':
+                self.downsample = nn.Conv3d(dims, dims, kernel_size=2, stride=2)
+        else:
+            self.downsample = nn.Identity()
         
         downsample_layer = nn.MaxPool3d(2, 2) if downsample else nn.Identity()
         dimchange_layer = nn.Identity() if dims==out_dims else nn.Conv3d(dims, self.out_dims, kernel_size=1, bias=False)
@@ -115,7 +118,6 @@ class ShallowResnetBlock3d(nn.Module):
         )
         
         self.block1 = Block3d(dims=dims, out_dims=dims, kernel_size=3)
-        self.downsample = self.downsample_way if downsample else nn.Identity()
         self.block2 = Block3d(dims=dims, out_dims=self.out_dims, kernel_size=3)
         
         self.ac_func = ac_fun()
@@ -155,11 +157,14 @@ class DeepResnetBlock3d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
-        self.downsample_way = nn.MaxPool3d(2, 2)
-        if downsample_way == 'avgpool':
-            self.downsample_way = nn.AvgPool3d(2, 2)
-        if downsample_way == 'conv':
-            self.downsample_way = nn.Conv3d(dims, dims, kernel_size=2, stride=2)
+        if downsample:
+            self.downsample = nn.MaxPool3d(2, 2)
+            if downsample_way == 'avgpool':
+                self.downsample = nn.AvgPool3d(2, 2)
+            if downsample_way == 'conv':
+                self.downsample = nn.Conv3d(dims, dims, kernel_size=2, stride=2)
+        else:
+            self.downsample = nn.Identity()
 
         downsample_layer = nn.MaxPool3d(2, 2) if downsample else nn.Identity()
         dimchange_layer = nn.Identity() if dims==out_dims else nn.Conv3d(dims, self.out_dims, kernel_size=1, bias=False)
@@ -171,7 +176,6 @@ class DeepResnetBlock3d(nn.Module):
         
         self.block1 = Block3d(dims=dims, out_dims=dims, kernel_size=3)
         self.block2 = Block3d(dims=dims, out_dims=dims, kernel_size=3)
-        self.downsample = self.downsample_way if downsample else nn.Identity()
         self.block3 = Block3d(dims=dims, out_dims=self.out_dims, kernel_size=3)
         
         self.ac_func = ac_fun()

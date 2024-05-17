@@ -116,11 +116,14 @@ class ShallowResnetBlock2d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
-        self.downsample_way = nn.MaxPool2d(2, 2)
-        if downsample_way == 'avgpool':
-            self.downsample_way = nn.AvgPool2d(2, 2)
-        if downsample_way == 'conv':
-            self.downsample_way = nn.Conv2d(dims, dims, kernel_size=2, stride=2)
+        if downsample:
+            self.downsample = nn.MaxPool2d(2, 2)
+            if downsample_way == 'avgpool':
+                self.downsample = nn.AvgPool2d(2, 2)
+            if downsample_way == 'conv':
+                self.downsample = nn.Conv2d(dims, dims, kernel_size=2, stride=2)
+        else:
+            self.downsample = nn.Identity()
         
         downsample_layer = nn.MaxPool2d(2, 2) if downsample else nn.Identity()
         dimchange_layer = nn.Identity() if dims==out_dims else nn.Conv2d(dims, self.out_dims, kernel_size=1, bias=False)
@@ -137,7 +140,6 @@ class ShallowResnetBlock2d(nn.Module):
             norm=norm,
             groups=groups,
         )
-        self.downsample = self.downsample_way if downsample else nn.Identity()
         self.block2 = Block2d(
             dims=dims,
             out_dims=self.out_dims,
@@ -185,11 +187,14 @@ class DeepResnetBlock2d(nn.Module):
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
         
-        self.downsample_way = nn.MaxPool2d(2, 2)
-        if downsample_way == 'avgpool':
-            self.downsample_way = nn.AvgPool2d(2, 2)
-        if downsample_way == 'conv':
-            self.downsample_way = nn.Conv2d(dims, dims, kernel_size=2, stride=2)
+        if downsample:
+            self.downsample = nn.MaxPool2d(2, 2)
+            if downsample_way == 'avgpool':
+                self.downsample = nn.AvgPool2d(2, 2)
+            if downsample_way == 'conv':
+                self.downsample = nn.Conv2d(dims, dims, kernel_size=2, stride=2)
+        else:
+            self.downsample = nn.Identity()
 
         downsample_layer = nn.MaxPool2d(2, 2) if downsample else nn.Identity()
         dimchange_layer = nn.Identity() if dims==out_dims else nn.Conv2d(dims, self.out_dims, kernel_size=1, bias=False)
@@ -213,7 +218,6 @@ class DeepResnetBlock2d(nn.Module):
             norm=norm,
             groups=groups,
         )
-        self.downsample = self.downsample_way if downsample else nn.Identity()
         self.block3 = Block2d(
             dims=dims,
             out_dims=self.out_dims,
