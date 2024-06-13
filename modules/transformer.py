@@ -17,6 +17,7 @@ from einops import rearrange, repeat, reduce
 import math
 from beartype import beartype
 
+
 # implementation from paper "Attention is All You Need"
 # https://arxiv.org/abs/1706.03762
 
@@ -73,16 +74,14 @@ class MultiHeadAttention(nn.Module):
         self.d_model = d_model
         self.n_heads = n_heads
         self.is_causal = is_causal
+        self.scale = 1./math.sqrt(self.d_k)
         
         self.dropout = nn.Identity() if atten_dropout is None else nn.Dropout(atten_dropout)
         
         self.Qw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wq
         self.Kw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wk
         self.Vw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wv
-        
         self.Ow = nn.Linear(d_model, d_model, bias=True)
-        
-        self.scale = 1./math.sqrt(self.d_k)
         
     
     @beartype
@@ -96,15 +95,15 @@ class MultiHeadAttention(nn.Module):
         causal_mask: Optional[TensorType[1, 1, 'ql', 'kl', bool]]=None,
     ):
         ''' 
-            Params:
-                query: [bs, q_len, dk, float]
-                key: [bs, k_len, dk, float]
-                value: [bs, v_len, dk, float]
-                key_padding_mask: [bs, 1, 1, k_len, bool]
-                causal_mask: [1, 1, q_len, k_len, bool]
-            Return:
-                output: [bs, q_len, (nh*dk)]
-                atten_scores: [bs, nh, q_len, k_len]
+        Args:
+            query: [bs, q_len, dk, float]
+            key: [bs, k_len, dk, float]
+            value: [bs, v_len, dk, float]
+            key_padding_mask: [bs, 1, 1, k_len, bool]
+            causal_mask: [1, 1, q_len, k_len, bool]
+        Returns:
+            output: [bs, q_len, (nh*dk)]
+            atten_scores: [bs, nh, q_len, k_len]
         '''
         # reshape (Q, K, V) to multi-head vector
         # query : ->[bs, query_len, heads, dk]
@@ -131,9 +130,7 @@ class MultiHeadAttention(nn.Module):
 
         # calculate attention distribution
         attention_scores = attention_scores.softmax(dim=-1)
-        
         attention_scores = self.dropout(attention_scores)
-        
         # attention_scores = [batch_size, heads, query_len, key_len]
         # value = [batch_size, value_len, heads, d_k]
         # key_len = value_len [batch_size, query_len, heads, d_k]
@@ -152,13 +149,10 @@ class MultiHeadAttention(nn.Module):
     ):
         
         if mask is not None:
-            
             score = score.masked_fill(~mask, float(-1e10))
-            
             return score
         
         else:
-            
             return score
         
         
@@ -193,14 +187,11 @@ class MultiHeadAttention(nn.Module):
         value = self.Vw(value)
         
         if use_cache:
-            
-            if kv_cache['key'] is None:  # discreminate key or value is none or not
-                
+            if kv_cache['key'] is None:  # discreminate key or value is none or not  
                 present_key = key
                 present_value = value
                 
             else:
-            
                 present_key = torch.cat([kv_cache['key'], key], dim=1)
                 present_value = torch.cat([kv_cache['value'], value], dim=1)
                 
@@ -216,15 +207,12 @@ class MultiHeadAttention(nn.Module):
             return output, new_cache, attention_scores
         
         causal_mask = None
-        
         if self.is_causal:
             # usually we just use causal mask in decoder self attention
             # ql = kl = vl
             causal_mask = self._make_causal_mask(query)
             causal_mask = rearrange(causal_mask, '... -> 1 1 ...')  # [1, 1, sl, sl]
-            
-        if key_padding_mask is not None:
-            
+        if key_padding_mask is not None:   
             key_padding_mask = rearrange(key_padding_mask, 'bs kl -> bs 1 1 kl')
         
         output, attention_scores = self.attention(
@@ -560,15 +548,12 @@ class TransformerDecoder(nn.Module):
         """
             
         for idx, block in enumerate(self.layers):
-            
             cache_temp = None
             
             if use_cache:
-                
                 if kv_cache_list is None:
                     # initialize cache list
                     kv_cache_list = self._init_cache()
-                
                 # cache for each layer
                 cache_temp = kv_cache_list[idx]
             
@@ -582,7 +567,6 @@ class TransformerDecoder(nn.Module):
             )
             
             if use_cache:
-                
                 # update cache
                 kv_cache_list[idx] = new_cache
         
@@ -598,14 +582,9 @@ class TransformerDecoder(nn.Module):
     ):
         
         cache_list = []
-        
         for i in range(self.n_layers):
-            
             cache_list.append(
-                {
-                    'key': None,
-                    'value': None,
-                }
+                {'key': None, 'value': None,}
             )
         
         return cache_list
@@ -630,6 +609,7 @@ def top_k_logits(logits: torch.Tensor, k: int) -> torch.Tensor:
         k_largest = torch.min(values)
         logits = torch.where(torch.le(logits, k_largest), torch.ones_like(logits) * -1e9, logits)
         return logits
+
 
 def top_p_logits(logits: torch.Tensor, p: float) -> torch.Tensor:
     """Masks logits using nucleus (top-p) sampling

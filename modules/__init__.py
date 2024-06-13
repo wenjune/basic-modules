@@ -14,4 +14,5 @@ __all__ = [
     'resnet_3d',
     'sparse_resnet_3d',
     'transformer',
+    'dit',
 ]
