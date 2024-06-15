@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-06-14 03:59:36
+LastEditTime: 2024-06-15 17:51:45
 FilePath: dit_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -293,7 +293,7 @@ class AdaLNDiTBlock(nn.Module):
     def forward(
         self,
         x: TensorType['bs', 'sl', 'dim', float],
-        cond: TensorType['bs', 1, 'dim', float],
+        cond: TensorType['bs', 1, 'dim', float],  # conclude t and other conditions
     ):
         
         # all params shape [bs, dim]
@@ -350,7 +350,9 @@ class CroAttnDitBlock(nn.Module):
     def forward(
         self,
         x: TensorType['bs', 'sl', 'dim', float],
-        cond: TensorType['bs', 2, 'dim', float],
+        cond: TensorType['bs', 'c', 'dim', float],
+        # if c==1, cond is t_embed
+        # if c==2, cond is [t_embed, context]
     ):
         
         residual = x
@@ -400,7 +402,9 @@ class InContextDiTBlock(nn.Module):
     def forward(
         self,
         x: TensorType['bs', 'sl', 'dim', float],
-        cond: TensorType['bs', 2, 'dim', float],
+        cond: TensorType['bs', 'c', 'dim', float],
+        # if c==1, cond is t_embed
+        # if c==2, cond is [t_embed, context]
     ):
        
         sl = x.shape[1]  # valid sequence length
@@ -414,7 +418,7 @@ class InContextDiTBlock(nn.Module):
         x = self.norm2(x)
         x = residual + self.mlp(x)
         
-        return x[:, :-2, :]
+        return x[:, :sl, :]
         
         
 
@@ -441,6 +445,7 @@ class FinalLayer(nn.Module):
         self.out_linear = nn.Linear(dim, self.out_dim, bias=True)
 
 
+    @beartype
     def forward(
         self,
         x: TensorType['bs', 'sl', 'dim', float],
@@ -500,13 +505,19 @@ class DiT(nn.Module):
         self,
         x: TensorType['bs', 'sl', 'dim', float],
         t_embed: TensorType['bs', 1, 'dim', float],
-        context: TensorType['bs', 1, 'dim', float],
+        context: Optional[TensorType['bs', 1, 'dim', float]]=None,
     ):
         
         if self.block == AdaLNDiTBlock:
-            cond = t_embed + context
+            if context is None:
+                cond = t_embed
+            else:
+                cond = t_embed + context
         else:
-            cond = torch.cat([t_embed, context], dim=1)
+            if context is None:
+                cond = t_embed
+            else:
+                cond = torch.cat([t_embed, context], dim=1)
         
         for block in self.blocks:
             x = block(x, cond)
