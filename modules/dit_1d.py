@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-06-15 17:51:45
+LastEditTime: 2024-06-17 20:28:41
 FilePath: dit_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -442,7 +442,7 @@ class FinalLayer(nn.Module):
             nn.Linear(dim, 2 * dim, bias=True)
         )
         
-        self.out_linear = nn.Linear(dim, self.out_dim, bias=True)
+        self.linear = nn.Linear(dim, self.out_dim, bias=True)
 
 
     @beartype
@@ -458,7 +458,7 @@ class FinalLayer(nn.Module):
         shift, scale = self.adaLN_modulation(cond).chunk(2, dim=-1)
         x = modulate(self.norm_final(x), shift, scale)
         
-        x = self.out_linear(x)
+        x = self.linear(x)
         
         return x
 
@@ -498,6 +498,32 @@ class DiT(nn.Module):
             dim=self.dim,
             out_dim=self.out_dim,
         )
+        
+        self.initialize_weights()
+        
+    
+    def initialize_weights(self):
+        # Initialize transformer layers:
+        def _basic_init(module):
+            if isinstance(module, nn.Linear):
+                torch.nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+        self.apply(_basic_init)
+
+        # Zero-out adaLN modulation layers in DiT blocks:
+        for block in self.blocks:
+            if hasattr(block, 'adaLN_modulation'):
+                nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
+                nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
+            else:
+                continue
+
+        # Zero-out output layers:
+        nn.init.constant_(self.final_layer.adaLN_modulation[-1].weight, 0)
+        nn.init.constant_(self.final_layer.adaLN_modulation[-1].bias, 0)
+        nn.init.constant_(self.final_layer.linear.weight, 0)
+        nn.init.constant_(self.final_layer.linear.bias, 0)
         
     
     @beartype
