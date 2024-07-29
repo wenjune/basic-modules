@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-16 17:05:29
+LastEditTime: 2024-07-29 15:41:58
 FilePath: transformer.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -29,16 +29,16 @@ class FeedForward(nn.Module):
     def __init__(
         self,
         dim: int,
-        hidden_dim: int=2048,
+        mlp_hidden_dim: int=2048,
         ac_func=nn.ReLU,
         dropout: float=None,
     ) -> None:
         super(FeedForward, self).__init__()
         
-        self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
+        self.fc1 = nn.Linear(in_features=dim, out_features=mlp_hidden_dim)
         self.ac_func = ac_func()
         self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
-        self.fc2 = nn.Linear(in_features=hidden_dim, out_features=dim)
+        self.fc2 = nn.Linear(in_features=mlp_hidden_dim, out_features=dim)
         
     
     @beartype   
@@ -61,18 +61,18 @@ class MultiHeadAttention(nn.Module):
     def __init__(
         self,
         d_model: int,
-        n_heads: int=8,
+        nheads: int=8,
         qkv_bias: bool=False,
         is_causal: bool=False,
         atten_dropout: float=None,
     ) -> None:
         super(MultiHeadAttention, self).__init__()
         
-        assert d_model % n_heads == 0, "d_model should divisible by n_heads != 0!"
+        assert d_model % nheads == 0, "d_model should divisible by nheads != 0!"
         
-        self.d_k = d_model // n_heads
+        self.d_k = d_model // nheads
         self.d_model = d_model
-        self.n_heads = n_heads
+        self.nheads = nheads
         self.is_causal = is_causal
         self.scale = 1./math.sqrt(self.d_k)
         
@@ -254,8 +254,8 @@ class EncoderBlock(nn.Module):
     def __init__(
         self,
         d_model: int,
-        n_heads: int=8,
-        hidden_dim: int=2048,
+        nheads: int=8,
+        mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
         ffd_dropout: float=None,
         atten_dropout: float=None,
@@ -266,14 +266,14 @@ class EncoderBlock(nn.Module):
         
         self.self_atten_block = MultiHeadAttention(
             d_model=d_model,
-            n_heads=n_heads,
+            nheads=nheads,
             atten_dropout=atten_dropout,
             qkv_bias=qkv_bias,
         )
         
         self.feed_forward_block = FeedForward(
             dim=d_model,
-            hidden_dim=hidden_dim,
+            mlp_hidden_dim=mlp_hidden_dim,
             dropout=ffd_dropout,
             ac_func=ac_func,
         )
@@ -327,8 +327,8 @@ class DecoderBlock(nn.Module):
     def __init__(
         self,
         d_model: int,
-        n_heads: int=8,
-        hidden_dim: int=2048,
+        nheads: int=8,
+        mlp_hidden_dim: int=2048,
         qkv_bias: bool=True,
         ffd_dropout: float=None,
         self_atten_dropout: float=None,
@@ -345,7 +345,7 @@ class DecoderBlock(nn.Module):
         
         self.self_atten_block = MultiHeadAttention(
             d_model=d_model,
-            n_heads=n_heads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
             atten_dropout=self_atten_dropout,
             is_causal=is_causal
@@ -353,14 +353,14 @@ class DecoderBlock(nn.Module):
         
         self.cross_atten_block = MultiHeadAttention(
             d_model=d_model,
-            n_heads=n_heads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
             atten_dropout=cross_atten_dropout
         ) if is_cross_atten else nn.Identity()
         
         self.feed_forward_block = FeedForward(
             dim=d_model,
-            hidden_dim=hidden_dim,
+            mlp_hidden_dim=mlp_hidden_dim,
             dropout=ffd_dropout,
             ac_func=ac_func,
         )
@@ -425,9 +425,9 @@ class TransformerEncoder(nn.Module):
     def __init__(
         self,
         d_model: int,
-        n_layers: int=12,
-        n_heads: int=8,
-        hidden_dim: int=2048,
+        depth: int=12,
+        nheads: int=8,
+        mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
         ffd_dropout: float=None,
         atten_dropout: float=None,
@@ -438,14 +438,14 @@ class TransformerEncoder(nn.Module):
         
         self.layers = nn.ModuleList([EncoderBlock(
             d_model=d_model,
-            n_heads=n_heads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
-            hidden_dim=hidden_dim,
+            mlp_hidden_dim=mlp_hidden_dim,
             ffd_dropout=ffd_dropout,
             atten_dropout=atten_dropout,
             ac_func=ac_func,
             norm=norm,
-            ) for _ in range(n_layers)]
+            ) for _ in range(depth)]
         )
     
     
@@ -487,10 +487,10 @@ class TransformerDecoder(nn.Module):
     def __init__(
         self,
         d_model: int,
-        n_layers: int=12,
-        n_heads: int=8,
+        depth: int=12,
+        nheads: int=8,
         qkv_bias: bool=False,
-        hidden_dim: int=2048,
+        mlp_hidden_dim: int=2048,
         ffd_dropout: float=None,
         self_atten_dropout: float=None,
         cross_atten_dropout: float=None,
@@ -502,12 +502,12 @@ class TransformerDecoder(nn.Module):
         super(TransformerDecoder, self).__init__()
         
         self.is_cross_atten = is_cross_atten
-        self.n_layers = n_layers
+        self.depth = depth
         
         self.layers = nn.ModuleList([DecoderBlock(
             d_model=d_model,
-            n_heads=n_heads,
-            hidden_dim=hidden_dim,
+            nheads=nheads,
+            mlp_hidden_dim=mlp_hidden_dim,
             qkv_bias=qkv_bias,
             ffd_dropout=ffd_dropout,
             self_atten_dropout=self_atten_dropout,
@@ -516,7 +516,7 @@ class TransformerDecoder(nn.Module):
             is_causal=is_causal,
             ac_func=ac_func,
             norm=norm,
-            ) for _ in range(n_layers)]
+            ) for _ in range(depth)]
         )
     
     
@@ -582,7 +582,7 @@ class TransformerDecoder(nn.Module):
     ):
         
         cache_list = []
-        for i in range(self.n_layers):
+        for i in range(self.depth):
             cache_list.append(
                 {'key': None, 'value': None,}
             )

@@ -24,8 +24,8 @@ def encoder_test():
     
     encoder = TransformerEncoder(
         d_model=128,
-        n_layers=8,
-        n_heads=8,
+        depth=8,
+        nheads=8,
         ac_func=nn.GELU,
     )
     src = torch.rand(4, 64, 128)  # [bs, sl, d_model]
@@ -39,8 +39,8 @@ def decoder_test():
     
     decoder = TransformerDecoder(
         d_model=128,
-        n_layers=4,
-        n_heads=8,
+        depth=4,
+        nheads=8,
         ac_func=nn.ReLU,
         is_cross_atten=True,
     )
@@ -70,8 +70,8 @@ def autoregressive():
             self.embedding = nn.Embedding(10, 128, padding_idx=9)
             self.decoder = TransformerDecoder(
                 d_model=128,
-                n_layers=4,
-                n_heads=4,
+                depth=4,
+                nheads=4,
                 ac_func=nn.ReLU,
                 is_cross_atten=False,
             )
