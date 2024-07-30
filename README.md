@@ -11,7 +11,8 @@ This repository includes the following modules:
 - `resnet_3d.py`: Implementation of the ResNet architecture for 3D data.
 - `sparse_resnet_3d.py`: Implementation of the ResNet architecture for sparse 3D data using spconv.
 - `transformer.py`: Basic implementation of the Transformer architecture, adaptable for various sequence-to-sequence tasks.
-- `dit.py`: Basic implementation of the Scalable Diffusion Models with Transformers, this module is suitable for 1d sequence date, and you can do some change for 2d image data based on the basic blocks.
+- `dit_1d.py`: Basic implementation of the Scalable Diffusion Models with Transformers, this module is suitable for 1d sequence date, and you can do some change for 2d image data based on the basic blocks.
+- `attention.py`: Implementation attention mechanism for different data types, you can use it directly and add it in your owm modules.
 
 ## Usage
 
