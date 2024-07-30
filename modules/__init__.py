@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-14 09:40:58
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-14 18:42:17
+LastEditTime: 2024-07-31 00:22:02
 FilePath: __init__.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -15,4 +15,5 @@ __all__ = [
     'sparse_resnet_3d',
     'transformer',
     'dit',
+    'attention',
 ]
