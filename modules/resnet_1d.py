@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:39:33
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-31 14:52:42
+LastEditTime: 2024-07-31 15:06:49
 FilePath: resnet_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -12,6 +12,11 @@ import torch.nn as nn
 from torchtyping import TensorType
 from typing import Optional, List
 from beartype import beartype
+
+import os, sys
+ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_PATH)
+
 from modules.attention import ConvAttention
 
 

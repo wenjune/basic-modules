@@ -2,17 +2,22 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:19
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-17 12:14:05
+LastEditTime: 2024-07-31 15:07:36
 FilePath: resnet_3d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
 '''
-import torch
 import torch.nn as nn
 from torchtyping import TensorType
 from typing import Optional, List
 from beartype import beartype
+
+import os, sys
+ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_PATH)
+
+from modules.attention import ConvAttention
 
 
 
