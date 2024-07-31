@@ -22,35 +22,40 @@ Resnet18 = resnet18_3d(
     in_dims=3,
     proj_out_dims=1024,
     ac_func=nn.ReLU,
-    downsample_way='max_pool'  # 'max_pool' or 'conv' or 'avg_pool'
+    downsample_way='max_pool',  # 'max_pool' or 'conv' or 'avg_pool'
+    use_attn=False,
 )
 
 Resnet34 = resnet34_3d(
     in_dims=3,
     proj_out_dims=1024,
     ac_func=nn.ReLU,
-    downsample_way='max_pool'
+    downsample_way='max_pool',
+    use_attn=False,
 )
 
 Resnet50 = resnet50_3d(
     in_dims=3,
     proj_out_dims=1024,
     ac_func=nn.ReLU,
-    downsample_way='max_pool'
+    downsample_way='max_pool',
+    use_attn=False,
 )
 
 Resnet101 = resnet101_3d(
     in_dims=3,
     proj_out_dims=1024,
     ac_func=nn.ReLU,
-    downsample_way='max_pool'
+    downsample_way='max_pool',
+    use_attn=False,
 )
 
 Resnet152 = resnet152_3d(
     in_dims=3,
     proj_out_dims=1024,
     ac_func=nn.ReLU,
-    downsample_way='max_pool'
+    downsample_way='max_pool',
+    use_attn=False,
 )
 
 
@@ -65,6 +70,7 @@ ResnetCustom = ShallowResnet3d(
     dims=[32, 64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way='conv',
+    use_attn=False,
 )
 
 

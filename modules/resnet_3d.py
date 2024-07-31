@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:19
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-31 15:07:36
+LastEditTime: 2024-07-31 15:48:24
 FilePath: resnet_3d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -13,11 +13,7 @@ from torchtyping import TensorType
 from typing import Optional, List
 from beartype import beartype
 
-import os, sys
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(ROOT_PATH)
-
-from modules.attention import ConvAttention
+from attention import ConvAttention
 
 
 
@@ -98,12 +94,16 @@ class ShallowResnetBlock3d(nn.Module):
         out_dims: int=None,
         downsample: bool=False,
         downsample_way: str='maxpool',
-        ac_fun=nn.ReLU
+        ac_fun=nn.ReLU,
+        use_attn: bool=True,
+        nheads: int=8,
+        dim_head: int=64,
     ) -> None:
         super(ShallowResnetBlock3d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
+        self.use_attn = use_attn
         
         if downsample:
             self.downsample = nn.MaxPool3d(2, 2)
@@ -125,6 +125,14 @@ class ShallowResnetBlock3d(nn.Module):
         self.block1 = Block3d(dims=dims, out_dims=dims, kernel_size=3)
         self.block2 = Block3d(dims=dims, out_dims=self.out_dims, kernel_size=3)
         
+        if use_attn:
+            self.attn = ConvAttention(
+                dim=self.out_dims,
+                ndim=3,
+                nheads=nheads,
+                dim_head=dim_head,
+            )
+        
         self.ac_func = ac_fun()
         
     
@@ -141,9 +149,10 @@ class ShallowResnetBlock3d(nn.Module):
         x = self.downsample(x)
         x = self.block2(x)
         
-        out = self.ac_func(residual + x)
+        if self.use_attn:
+            x = self.attn(x)
         
-        return out
+        return self.ac_func(residual + x)
         
 
 
@@ -155,12 +164,16 @@ class DeepResnetBlock3d(nn.Module):
         out_dims: int=None,
         downsample: bool=False,
         downsample_way: str='maxpool',
-        ac_fun=nn.ReLU
+        ac_fun=nn.ReLU,
+        use_attn: bool=True,
+        nheads: int=8,
+        dim_head: int=64,
     ) -> None:
         super(DeepResnetBlock3d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
+        self.use_attn = use_attn
         
         if downsample:
             self.downsample = nn.MaxPool3d(2, 2)
@@ -183,6 +196,14 @@ class DeepResnetBlock3d(nn.Module):
         self.block2 = Block3d(dims=dims, out_dims=dims, kernel_size=3)
         self.block3 = Block3d(dims=dims, out_dims=self.out_dims, kernel_size=3)
         
+        if use_attn:
+            self.attn = ConvAttention(
+                dim=self.out_dims,
+                ndim=3,
+                nheads=nheads,
+                dim_head=dim_head,
+            )
+        
         self.ac_func = ac_fun()
         
     
@@ -201,9 +222,10 @@ class DeepResnetBlock3d(nn.Module):
         x = self.ac_func(x)
         x = self.block3(x)
         
-        out = self.ac_func(residual + x)
+        if self.use_attn:
+            x = self.attn(x)
         
-        return out
+        return self.ac_func(residual + x)
         
     
 
@@ -218,6 +240,9 @@ class ShallowResnet3d(nn.Module):
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
         downsample_way: str='maxpool',
+        use_attn: bool=True,
+        attn_heads: List[int]=[8, 8, 16, 16],
+        attn_dim_head: List[int]=[32, 32, 32, 64],
     ) -> None:
         super(ShallowResnet3d, self).__init__()
         
@@ -234,12 +259,17 @@ class ShallowResnet3d(nn.Module):
             for i in range(_):
                 if i == _-1:
                     downsample = True
-                self.resnet_module_list.append(ShallowResnetBlock3d(
+                self.resnet_module_list.append(
+                    ShallowResnetBlock3d(
                     curr_dim, dims[idx],
                     ac_fun=ac_func,
                     downsample=downsample,
                     downsample_way=downsample_way,
-                ))
+                    use_attn=use_attn,
+                    nheads=attn_heads[idx] if use_attn else 0,
+                    dim_head=attn_dim_head[idx] if use_attn else 0,
+                    )
+                )
                 curr_dim = dims[idx]
     
     
@@ -271,6 +301,9 @@ class DeepResnet3d(nn.Module):
         dims: List[int]=[128, 256, 384, 512],
         ac_func=nn.ReLU,
         downsample_way: str='maxpool',
+        use_attn: bool=True,
+        attn_heads: List[int]=[8, 8, 16, 16],
+        attn_dim_head: List[int]=[32, 32, 32, 64],
     ) -> None:
         super().__init__()
         
@@ -287,12 +320,17 @@ class DeepResnet3d(nn.Module):
             for i in range(_):
                 if i == _-1:
                     downsample = True
-                self.resnet_module_list.append(DeepResnetBlock3d(
+                self.resnet_module_list.append(
+                    DeepResnetBlock3d(
                     curr_dim, dims[idx],
                     downsample=downsample,
                     ac_fun=ac_func,
                     downsample_way=downsample_way,
-                ))
+                    use_attn=use_attn,
+                    nheads=attn_heads[idx] if use_attn else 0,
+                    dim_head=attn_dim_head[idx] if use_attn else 0,
+                    )
+                )
                 curr_dim = dims[idx]
             
     
@@ -321,6 +359,9 @@ def resnet18_3d(
     dims: List[int]=[64, 128, 156, 384],
     ac_func=nn.ReLU,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = ShallowResnet3d(
@@ -331,6 +372,9 @@ def resnet18_3d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -343,6 +387,9 @@ def resnet34_3d(
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = ShallowResnet3d(
@@ -353,6 +400,9 @@ def resnet34_3d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -365,6 +415,9 @@ def resnet50_3d(
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet3d(
@@ -375,6 +428,9 @@ def resnet50_3d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -387,6 +443,9 @@ def resnet101_3d(
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet3d(
@@ -397,6 +456,9 @@ def resnet101_3d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -409,6 +471,9 @@ def resnet152_3d(
     dims: List[int]=[64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet3d(
@@ -419,6 +484,9 @@ def resnet152_3d(
         dims=dims,
         ac_func=ac_func,
         downsample_way=downsample_way,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module

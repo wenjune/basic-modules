@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:40:45
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-15 22:05:15
+LastEditTime: 2024-07-31 15:51:03
 FilePath: resnet_2d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -13,11 +13,7 @@ from torchtyping import TensorType
 from typing import Optional, List
 from beartype import beartype
 
-import os, sys
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(ROOT_PATH)
-
-from modules.attention import ConvAttention
+from attention import ConvAttention
 
 
 
@@ -115,11 +111,15 @@ class ShallowResnetBlock2d(nn.Module):
         ac_fun=nn.ReLU,
         norm=nn.BatchNorm2d,
         groups: int=8,
+        use_attn: bool=True,
+        nheads: int=8,
+        dim_head: int=64,
     ) -> None:
         super(ShallowResnetBlock2d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
+        self.use_attn = use_attn
         
         if downsample:
             self.downsample = nn.MaxPool2d(2, 2)
@@ -153,6 +153,14 @@ class ShallowResnetBlock2d(nn.Module):
             groups=groups,
         )
         
+        if use_attn:
+            self.attn = ConvAttention(
+                dim=self.out_dims,
+                ndim=2,
+                nheads=nheads,
+                dim_head=dim_head,
+            )
+        
         self.ac_func = ac_fun()
         
     
@@ -169,9 +177,10 @@ class ShallowResnetBlock2d(nn.Module):
         x = self.downsample(x)
         x = self.block2(x)
         
-        out = self.ac_func(residual + x)
+        if self.use_attn:
+            x = self.attn(x)
         
-        return out
+        return self.ac_func(residual + x)
         
 
 
@@ -186,11 +195,15 @@ class DeepResnetBlock2d(nn.Module):
         ac_fun=nn.ReLU,
         norm=nn.BatchNorm2d,
         groups: int=8,
+        use_attn: bool=True,
+        nheads: int=8,
+        dim_head: int=64,
     ) -> None:
         super(DeepResnetBlock2d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
+        self.use_attn = use_attn
         
         if downsample:
             self.downsample = nn.MaxPool2d(2, 2)
@@ -231,6 +244,14 @@ class DeepResnetBlock2d(nn.Module):
             groups=groups,
         )
         
+        if use_attn:
+            self.attn = ConvAttention(
+                dim=self.out_dims,
+                ndim=2,
+                nheads=nheads,
+                dim_head=dim_head,
+            )
+        
         self.ac_func = ac_fun()
         
     
@@ -249,9 +270,10 @@ class DeepResnetBlock2d(nn.Module):
         x = self.ac_func(x)
         x = self.block3(x)
         
-        out = self.ac_func(residual + x)
+        if self.use_attn:
+            x = self.attn(x)
         
-        return out
+        return self.ac_func(residual + x)
         
     
 
@@ -267,7 +289,10 @@ class ShallowResnet2d(nn.Module):
         ac_func=nn.ReLU,
         norm=nn.BatchNorm2d,
         groups: int=8,
-        downsample_way: str='maxpool'
+        downsample_way: str='maxpool',
+        use_attn: bool=True,
+        attn_heads: List[int]=[8, 8, 16, 16],
+        attn_dim_head: List[int]=[32, 32, 32, 64],
     ) -> None:
         super(ShallowResnet2d, self).__init__()
         
@@ -297,6 +322,9 @@ class ShallowResnet2d(nn.Module):
                     downsample_way=downsample_way,
                     norm=norm,
                     groups=groups,
+                    use_attn=use_attn,
+                    nheads=attn_heads[idx] if use_attn else 0,
+                    dim_head=attn_dim_head[idx] if use_attn else 0,
                 ))
                 curr_dim = dims[idx]
     
@@ -331,6 +359,9 @@ class DeepResnet2d(nn.Module):
         norm=nn.BatchNorm2d,
         groups: int=8,
         downsample_way: str='maxpool',
+        use_attn: bool=True,
+        attn_heads: List[int]=[8, 8, 16, 16],
+        attn_dim_head: List[int]=[32, 32, 32, 64],
     ) -> None:
         super().__init__()
         
@@ -360,6 +391,9 @@ class DeepResnet2d(nn.Module):
                     downsample_way=downsample_way,
                     norm=norm,
                     groups=groups,
+                    use_attn=use_attn,
+                    nheads=attn_heads[idx] if use_attn else 0,
+                    dim_head=attn_dim_head[idx] if use_attn else 0,
                 ))
                 curr_dim = dims[idx]
             
@@ -391,6 +425,9 @@ def resnet18_2d(
     norm=nn.BatchNorm2d,
     groups: int=8,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = ShallowResnet2d(
@@ -403,6 +440,9 @@ def resnet18_2d(
         downsample_way=downsample_way,
         norm=norm,
         groups=groups,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -417,6 +457,9 @@ def resnet34_2d(
     norm=nn.BatchNorm2d,
     groups: int=8,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = ShallowResnet2d(
@@ -429,6 +472,9 @@ def resnet34_2d(
         downsample_way=downsample_way,
         norm=norm,
         groups=groups,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -443,6 +489,9 @@ def resnet50_2d(
     norm=nn.BatchNorm2d,
     groups: int=8,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet2d(
@@ -455,6 +504,9 @@ def resnet50_2d(
         downsample_way=downsample_way,
         norm=norm,
         groups=groups,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -469,6 +521,9 @@ def resnet101_2d(
     norm=nn.BatchNorm2d,
     groups: int=8,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet2d(
@@ -481,6 +536,9 @@ def resnet101_2d(
         downsample_way=downsample_way,
         norm=norm,
         groups=groups,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -495,6 +553,9 @@ def resnet152_2d(
     norm=nn.BatchNorm2d,
     groups: int=8,
     downsample_way: str='maxpool',
+    use_attn: bool=True,
+    attn_heads: List[int]=[8, 8, 16, 16],
+    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet2d(
@@ -507,6 +568,9 @@ def resnet152_2d(
         downsample_way=downsample_way,
         norm=norm,
         groups=groups,
+        use_attn=use_attn,
+        attn_heads=attn_heads,
+        attn_dim_head=attn_dim_head,
     )
     
     return module

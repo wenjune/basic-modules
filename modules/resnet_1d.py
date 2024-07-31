@@ -13,11 +13,7 @@ from torchtyping import TensorType
 from typing import Optional, List
 from beartype import beartype
 
-import os, sys
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(ROOT_PATH)
-
-from modules.attention import ConvAttention
+from attention import ConvAttention
 
 
 
@@ -358,8 +354,8 @@ class ShallowResnet1d(nn.Module):
                     norm=norm,
                     groups=groups,
                     use_attn=use_attn,
-                    attn_heads=attn_heads[idx],
-                    dim_head=attn_dim_head[idx],
+                    attn_heads=attn_heads[idx] if use_attn else 0,
+                    dim_head=attn_dim_head[idx] if use_attn else 0,
                     )
                 )
                 curr_dim = dims[idx]
@@ -431,8 +427,8 @@ class DeepResnet1d(nn.Module):
                     norm=norm,
                     groups=groups,
                     use_attn=use_attn,
-                    attn_heads=attn_heads[idx],
-                    dim_head=attn_dim_head[idx],
+                    attn_heads=attn_heads[idx] if use_attn else 0,
+                    dim_head=attn_dim_head[idx] if use_attn else 0,
                     )
                 )
                 curr_dim = dims[idx]

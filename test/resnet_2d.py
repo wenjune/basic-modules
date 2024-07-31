@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:43:52
 LastEditors: wenjun-VCC
-LastEditTime: 2024-05-14 10:14:24
+LastEditTime: 2024-07-31 15:38:42
 FilePath: resnet_2d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -48,19 +48,19 @@ Resnet50 = resnet50_2d(
     downsample_way='max_pool'
 )
 
-Resnet101 = resnet101_2d(
-    in_dims=3,
-    proj_out_dims=1024,
-    ac_func=nn.ReLU,
-    downsample_way='max_pool'
-)
+# Resnet101 = resnet101_2d(
+#     in_dims=3,
+#     proj_out_dims=1024,
+#     ac_func=nn.ReLU,
+#     downsample_way='max_pool'
+# )
 
-Resnet152 = resnet152_2d(
-    in_dims=3,
-    proj_out_dims=1024,
-    ac_func=nn.ReLU,
-    downsample_way='max_pool'
-)
+# Resnet152 = resnet152_2d(
+#     in_dims=3,
+#     proj_out_dims=1024,
+#     ac_func=nn.ReLU,
+#     downsample_way='max_pool'
+# )
 
 
 # custom module
@@ -70,8 +70,8 @@ ResnetCustom = ShallowResnet2d(
     in_dims=3,
     basic_out_dims=16,
     proj_out_dims=512,
-    blocks=[2, 2, 2, 2, 2],  # 5 layers in total, dowmsample in each layer
-    dims=[32, 64, 128, 256, 384],
+    blocks=[2, 2, 2, 2],  # 5 layers in total, dowmsample in each layer
+    dims=[32, 64, 128, 256],
     ac_func=nn.ReLU,
     downsample_way='conv',
 )
@@ -80,14 +80,14 @@ ResnetCustom = ShallowResnet2d(
 if __name__ == '__main__':
     
     # default
-    x = torch.randn(1, 3, 256, 256)  # [bs, channels, H, W]
+    x = torch.randn(1, 3, 128, 128)  # [bs, channels, H, W]
     module = Resnet18
     out = module(x)
     print(out.shape)  # [bs, proj_out_dims, H//16, W//16]
     # [1, 1024, 16, 16]
     
     # custom
-    x = torch.randn(1, 3, 256, 256)  # [bs, channels, H, W]
+    x = torch.randn(1, 3, 128, 128)  # [bs, channels, H, W]
     module = ResnetCustom
     out = module(x)
     print(out.shape)  # [bs, proj_out_dims, H//32, W//32]
