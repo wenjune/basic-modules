@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-31 00:20:51
+LastEditTime: 2024-07-31 14:38:41
 FilePath: attention.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -120,7 +120,7 @@ class LinearAttention(nn.Module):
         key: TensorType['b', 'ql', 'dim', float],
         value: TensorType['b', 'ql', 'dim', float],
         *,  # force to use keyword arguments
-        padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
+        padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,  # just for 1d attention
     ):
         ''' 
         Args:
