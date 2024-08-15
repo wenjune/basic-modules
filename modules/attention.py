@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-15 15:39:22
+LastEditTime: 2024-08-15 15:43:03
 FilePath: \BasicMoudles\modules\attention.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -106,7 +106,7 @@ class LinearAttention(nn.Module):
         self.dim_head = dim//nheads if dim_head is None else dim_head
         self.hidden_dim = dim if dim_head is None else dim_head * nheads
         self.nheads = nheads
-        self.scale = dim_head ** -0.5
+        self.scale = self.dim_head ** -0.5
         
         self.dropout = nn.Identity() if atten_dropout is None else nn.Dropout(atten_dropout)
         
