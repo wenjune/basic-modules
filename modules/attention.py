@@ -2,8 +2,8 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-31 14:38:41
-FilePath: attention.py
+LastEditTime: 2024-08-15 15:39:22
+FilePath: \BasicMoudles\modules\attention.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -97,13 +97,14 @@ class LinearAttention(nn.Module):
         self,
         dim: int,
         nheads: int=8,
-        dim_head: int=64,
+        dim_head: int=None,
         atten_dropout: float=None,
     ) -> None:
         super(LinearAttention, self).__init__()
         
-        self.dim_head = dim_head
-        self.hidden_dim = dim_head * nheads
+        self.dim = dim
+        self.dim_head = dim//nheads if dim_head is None else dim_head
+        self.hidden_dim = dim if dim_head is None else dim_head * nheads
         self.nheads = nheads
         self.scale = dim_head ** -0.5
         
