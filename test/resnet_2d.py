@@ -2,8 +2,8 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:43:52
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-31 15:38:42
-FilePath: resnet_2d.py
+LastEditTime: 2024-08-15 20:32:54
+FilePath: \BasicMoudles\test\resnet_2d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -70,8 +70,8 @@ ResnetCustom = ShallowResnet2d(
     in_dims=3,
     basic_out_dims=16,
     proj_out_dims=512,
-    blocks=[2, 2, 2, 2],  # 5 layers in total, dowmsample in each layer
-    dims=[32, 64, 128, 256],
+    blocks=[2, 2, 2, 2, 2],  # 5 layers in total, dowmsample in each layer
+    dims=[32, 64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way='conv',
 )

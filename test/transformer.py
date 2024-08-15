@@ -2,8 +2,8 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:44:07
 LastEditors: wenjun-VCC
-LastEditTime: 2024-06-13 19:04:53
-FilePath: transformer.py
+LastEditTime: 2024-08-15 20:45:53
+FilePath: \BasicMoudles\test\transformer.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -42,7 +42,7 @@ def decoder_test():
         depth=4,
         nheads=8,
         ac_func=nn.ReLU,
-        is_cross_atten=True,
+        is_cross_attn=True,
     )
     tgt = torch.rand(4, 64, 128)
     memory = torch.rand(4, 16, 128)
@@ -73,7 +73,7 @@ def autoregressive():
                 depth=4,
                 nheads=4,
                 ac_func=nn.ReLU,
-                is_cross_atten=False,
+                is_cross_attn=False,
             )
             self.to_logits = nn.Linear(128, 10)
             
@@ -123,6 +123,10 @@ def autoregressive():
 
 if __name__ == '__main__':
     
-    autoregressive()
+    encoder_test()
+    decoder_test()
+    
+    # autoregressive()
+    
     
     

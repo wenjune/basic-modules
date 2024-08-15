@@ -2,19 +2,20 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-29 15:41:58
-FilePath: transformer.py
+LastEditTime: 2024-08-15 20:44:03
+FilePath: \BasicMoudles\modules\transformer.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
 '''
+
+import math
 import torch
 from torch import nn
 from torchtyping import TensorType
 from typing import Optional, List
 import torch.nn.functional as F
 from einops import rearrange, repeat, reduce
-import math
 from beartype import beartype
 
 
@@ -29,16 +30,16 @@ class FeedForward(nn.Module):
     def __init__(
         self,
         dim: int,
-        mlp_hidden_dim: int=2048,
+        hidden_dim: int=2048,
         ac_func=nn.ReLU,
         dropout: float=None,
     ) -> None:
         super(FeedForward, self).__init__()
         
-        self.fc1 = nn.Linear(in_features=dim, out_features=mlp_hidden_dim)
+        self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
         self.ac_func = ac_func()
         self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
-        self.fc2 = nn.Linear(in_features=mlp_hidden_dim, out_features=dim)
+        self.fc2 = nn.Linear(in_features=hidden_dim, out_features=dim)
         
     
     @beartype   
@@ -64,7 +65,7 @@ class MultiHeadAttention(nn.Module):
         nheads: int=8,
         qkv_bias: bool=False,
         is_causal: bool=False,
-        atten_dropout: float=None,
+        dropout: float=None,
     ) -> None:
         super(MultiHeadAttention, self).__init__()
         
@@ -76,7 +77,7 @@ class MultiHeadAttention(nn.Module):
         self.is_causal = is_causal
         self.scale = 1./math.sqrt(self.d_k)
         
-        self.dropout = nn.Identity() if atten_dropout is None else nn.Dropout(atten_dropout)
+        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
         
         self.Qw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wq
         self.Kw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wk
@@ -258,7 +259,7 @@ class EncoderBlock(nn.Module):
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
         ffd_dropout: float=None,
-        atten_dropout: float=None,
+        attn_dropout: float=None,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
     ) -> None:
@@ -267,13 +268,13 @@ class EncoderBlock(nn.Module):
         self.self_atten_block = MultiHeadAttention(
             d_model=d_model,
             nheads=nheads,
-            atten_dropout=atten_dropout,
+            dropout=attn_dropout,
             qkv_bias=qkv_bias,
         )
         
         self.feed_forward_block = FeedForward(
             dim=d_model,
-            mlp_hidden_dim=mlp_hidden_dim,
+            hidden_dim=mlp_hidden_dim,
             dropout=ffd_dropout,
             ac_func=ac_func,
         )
@@ -331,23 +332,22 @@ class DecoderBlock(nn.Module):
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=True,
         ffd_dropout: float=None,
-        self_atten_dropout: float=None,
-        cross_atten_dropout: float=None,
-        is_cross_atten: bool=False,
+        attn_dropout: float=None,
+        is_cross_attn: bool=False,
         is_causal: bool=True,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
     ) -> None:
         super(DecoderBlock, self).__init__()
         
-        self.is_cross_atten = is_cross_atten
+        self.is_cross_attn = is_cross_attn
         self.is_causal = is_causal
         
         self.self_atten_block = MultiHeadAttention(
             d_model=d_model,
             nheads=nheads,
             qkv_bias=qkv_bias,
-            atten_dropout=self_atten_dropout,
+            dropout=attn_dropout,
             is_causal=is_causal
         )
         
@@ -355,18 +355,18 @@ class DecoderBlock(nn.Module):
             d_model=d_model,
             nheads=nheads,
             qkv_bias=qkv_bias,
-            atten_dropout=cross_atten_dropout
-        ) if is_cross_atten else nn.Identity()
+            dropout=attn_dropout
+        ) if is_cross_attn else nn.Identity()
         
         self.feed_forward_block = FeedForward(
             dim=d_model,
-            mlp_hidden_dim=mlp_hidden_dim,
+            hidden_dim=mlp_hidden_dim,
             dropout=ffd_dropout,
             ac_func=ac_func,
         )
         
         self.norm1 = norm(d_model)
-        self.norm2 = norm(d_model) if is_cross_atten else nn.Identity()
+        self.norm2 = norm(d_model) if is_cross_attn else nn.Identity()
         self.norm3 = norm(d_model)
     
     
@@ -400,7 +400,7 @@ class DecoderBlock(nn.Module):
         
         cros_attention_scores = None
         
-        if self.is_cross_atten:
+        if self.is_cross_attn:
             
             cros_attention, _, cros_attention_scores = self.cross_atten_block(
                 tgt, encoder_output, encoder_output,
@@ -430,7 +430,7 @@ class TransformerEncoder(nn.Module):
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
         ffd_dropout: float=None,
-        atten_dropout: float=None,
+        attn_dropout: float=None,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
     ) -> None:
@@ -442,7 +442,7 @@ class TransformerEncoder(nn.Module):
             qkv_bias=qkv_bias,
             mlp_hidden_dim=mlp_hidden_dim,
             ffd_dropout=ffd_dropout,
-            atten_dropout=atten_dropout,
+            attn_dropout=attn_dropout,
             ac_func=ac_func,
             norm=norm,
             ) for _ in range(depth)]
@@ -492,16 +492,15 @@ class TransformerDecoder(nn.Module):
         qkv_bias: bool=False,
         mlp_hidden_dim: int=2048,
         ffd_dropout: float=None,
-        self_atten_dropout: float=None,
-        cross_atten_dropout: float=None,
-        is_cross_atten: bool=False,
+        attn_dropout: float=None,
+        is_cross_attn: bool=False,
         is_causal: bool=True,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
     ) -> None:
         super(TransformerDecoder, self).__init__()
         
-        self.is_cross_atten = is_cross_atten
+        self.is_cross_attn = is_cross_attn
         self.depth = depth
         
         self.layers = nn.ModuleList([DecoderBlock(
@@ -510,9 +509,8 @@ class TransformerDecoder(nn.Module):
             mlp_hidden_dim=mlp_hidden_dim,
             qkv_bias=qkv_bias,
             ffd_dropout=ffd_dropout,
-            self_atten_dropout=self_atten_dropout,
-            cross_atten_dropout=cross_atten_dropout,
-            is_cross_atten=is_cross_atten,
+            attn_dropout=attn_dropout,
+            is_cross_attn=is_cross_attn,
             is_causal=is_causal,
             ac_func=ac_func,
             norm=norm,

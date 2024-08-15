@@ -2,8 +2,8 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:43:44
 LastEditors: wenjun-VCC
-LastEditTime: 2024-07-31 14:52:04
-FilePath: resnet_1d.py
+LastEditTime: 2024-08-15 20:32:06
+FilePath: \BasicMoudles\test\resnet_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -41,15 +41,15 @@ Resnet50 = resnet50_1d(
     proj_out_dims=1024,
 )
 
-Resnet101 = resnet101_1d(
-    in_dims=128,
-    proj_out_dims=1024,
-)
+# Resnet101 = resnet101_1d(
+#     in_dims=128,
+#     proj_out_dims=1024,
+# )
 
-Resnet152 = resnet152_1d(
-    in_dims=128,
-    proj_out_dims=1024,
-)
+# Resnet152 = resnet152_1d(
+#     in_dims=128,
+#     proj_out_dims=1024,
+# )
 
 
 # custom module
@@ -63,9 +63,6 @@ ResnetCustom = ShallowResnet1d(
     dims=[32, 64, 128, 256, 384],
     ac_func=nn.ReLU,
     norm=nn.GroupNorm,
-    use_attn=True,
-    attn_heads=[4,4,8,8,16],
-    attn_dim_head=[16, 16, 32, 32, 64]
 )
 
 

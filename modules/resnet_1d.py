@@ -13,7 +13,6 @@ from torchtyping import TensorType
 from typing import Optional, List
 from beartype import beartype
 
-from attention import ConvAttention
 
 
 
@@ -164,15 +163,11 @@ class ShallowResnetBlock1d(nn.Module):
         ac_func=nn.ReLU,
         norm=nn.GroupNorm,
         groups: int=16,
-        use_attn: bool=True,
-        attn_heads: int=8,
-        dim_head: int=32,
     ) -> None:
         super(ShallowResnetBlock1d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
-        self.use_attn = use_attn
         
         self.short_cut = nn.Identity() if out_dims is None else nn.Conv1d(dims, self.out_dims, kernel_size=1, bias=False)
         
@@ -191,14 +186,6 @@ class ShallowResnetBlock1d(nn.Module):
             norm=norm,
             groups=groups,
         )
-        
-        if use_attn:
-            self.attn_block = ConvAttention(
-                dim=self.out_dims,
-                ndim=1,
-                nheads=attn_heads,
-                dim_head=dim_head,
-            )
         
         self.ac_func = ac_func()
         
@@ -219,10 +206,6 @@ class ShallowResnetBlock1d(nn.Module):
         x = self.ac_func(x)
         x = self.block2(x, mask)
         
-        # attention block
-        if self.use_attn:
-            x = self.attn_block(x)
-        
         out = self.ac_func(residual + x)
         
         return out
@@ -238,15 +221,11 @@ class DeepResnetBlock1d(nn.Module):
         ac_func=nn.ReLU,
         norm=nn.GroupNorm,
         groups: int=16,
-        use_attn: bool=True,
-        attn_heads: int=8,
-        dim_head: int=32,
     ) -> None:
         super(DeepResnetBlock1d, self).__init__()
         
         self.dims = dims
         self.out_dims = dims if out_dims is None else out_dims
-        self.use_attn = use_attn
         
         self.short_cut = nn.Identity() if out_dims is None else nn.Conv1d(dims, self.out_dims, kernel_size=1, bias=False)
         
@@ -272,14 +251,6 @@ class DeepResnetBlock1d(nn.Module):
             groups=groups,
         )
         
-        if use_attn:
-            self.attn_block = ConvAttention(
-                dim=self.out_dims,
-                ndim=1,
-                nheads=attn_heads,
-                dim_head=dim_head,
-            )
-        
         self.ac_func = ac_func()
         
     
@@ -301,9 +272,6 @@ class DeepResnetBlock1d(nn.Module):
         x = self.ac_func(x)
         x = self.block3(x, mask)
         
-        if self.use_attn:
-            x = self.attn_block(x)
-        
         out = self.ac_func(residual + x)
         
         return out
@@ -322,15 +290,11 @@ class ShallowResnet1d(nn.Module):
         ac_func=nn.ReLU,
         norm=nn.GroupNorm,
         groups: int=16,
-        use_attn: bool=True,
-        attn_heads: List[int]=[8, 8, 16, 16],
-        attn_dim_head: List[int]=[32, 32, 32, 64],
     ) -> None:
         super(ShallowResnet1d, self).__init__()
         
         self.blocks = blocks
         self.dims = dims
-        self.use_attn = use_attn
         
         self.basic_conv = BasicBlock1d(
             in_dims,
@@ -353,9 +317,6 @@ class ShallowResnet1d(nn.Module):
                     ac_func=ac_func,
                     norm=norm,
                     groups=groups,
-                    use_attn=use_attn,
-                    attn_heads=attn_heads[idx] if use_attn else 0,
-                    dim_head=attn_dim_head[idx] if use_attn else 0,
                     )
                 )
                 curr_dim = dims[idx]
@@ -396,15 +357,11 @@ class DeepResnet1d(nn.Module):
         ac_func=nn.ReLU,
         norm=nn.GroupNorm,
         groups: int=16,
-        use_attn: bool=True,
-        attn_heads: List[int]=[8, 8, 16, 16],
-        attn_dim_head: List[int]=[32, 32, 32, 64],
     ) -> None:
         super().__init__()
         
         self.blocks = blocks
         self.dims = dims
-        self.use_attn = use_attn
         
         self.basic_conv = BasicBlock1d(
             in_dims,
@@ -426,9 +383,6 @@ class DeepResnet1d(nn.Module):
                     ac_func=ac_func,
                     norm=norm,
                     groups=groups,
-                    use_attn=use_attn,
-                    attn_heads=attn_heads[idx] if use_attn else 0,
-                    dim_head=attn_dim_head[idx] if use_attn else 0,
                     )
                 )
                 curr_dim = dims[idx]
@@ -476,9 +430,6 @@ def resnet18_1d(
     ac_func=nn.ReLU,
     norm=nn.GroupNorm,
     groups: int=16,
-    use_attn: bool=True,
-    attn_heads: List[int]=[8, 8, 16, 16],
-    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = ShallowResnet1d(
@@ -490,9 +441,6 @@ def resnet18_1d(
         ac_func=ac_func,
         norm=norm,
         groups=groups,
-        use_attn=use_attn,
-        attn_heads=attn_heads,
-        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -506,9 +454,6 @@ def resnet34_1d(
     ac_func=nn.ReLU,
     norm=nn.GroupNorm,
     groups: int=16,
-    use_attn: bool=True,
-    attn_heads: List[int]=[8, 8, 16, 16],
-    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = ShallowResnet1d(
@@ -520,9 +465,6 @@ def resnet34_1d(
         ac_func=ac_func,
         norm=norm,
         groups=groups,
-        use_attn=use_attn,
-        attn_heads=attn_heads,
-        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -536,9 +478,6 @@ def resnet50_1d(
     ac_func=nn.ReLU,
     norm=nn.GroupNorm,
     groups: int=16,
-    use_attn: bool=True,
-    attn_heads: List[int]=[8, 8, 16, 16],
-    attn_dim_head: List[int]=[32, 32, 32, 64],
 ):
     
     module = DeepResnet1d(
@@ -550,9 +489,6 @@ def resnet50_1d(
         ac_func=ac_func,
         norm=norm,
         groups=groups,
-        use_attn=use_attn,
-        attn_heads=attn_heads,
-        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -565,10 +501,7 @@ def resnet101_1d(
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
     norm=nn.GroupNorm,
-    groups: int=16,
-    use_attn: bool=True,
-    attn_heads: List[int]=[8, 8, 16, 16],
-    attn_dim_head: List[int]=[32, 32, 32, 64],
+    groups: int=32,
 ):
     
     module = DeepResnet1d(
@@ -580,9 +513,6 @@ def resnet101_1d(
         ac_func=ac_func,
         norm=norm,
         groups=groups,
-        use_attn=use_attn,
-        attn_heads=attn_heads,
-        attn_dim_head=attn_dim_head,
     )
     
     return module
@@ -595,10 +525,7 @@ def resnet152_1d(
     dims: List[int]=[128, 256, 384, 512],
     ac_func=nn.ReLU,
     norm=nn.GroupNorm,
-    groups: int=16,
-    use_attn: bool=True,
-    attn_heads: List[int]=[8, 8, 16, 16],
-    attn_dim_head: List[int]=[32, 32, 32, 64],
+    groups: int=32,
 ):
     
     module = DeepResnet1d(
@@ -610,9 +537,6 @@ def resnet152_1d(
         ac_func=ac_func,
         norm=norm,
         groups=groups,
-        use_attn=use_attn,
-        attn_heads=attn_heads,
-        attn_dim_head=attn_dim_head,
     )
     
     return module

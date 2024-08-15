@@ -1,3 +1,13 @@
+'''
+Author: wenjun-VCC
+Date: 2024-06-14 04:53:35
+LastEditors: wenjun-VCC
+LastEditTime: 2024-08-15 20:33:15
+FilePath: \BasicMoudles\test\resnet_3d.py
+Description: __discription:__
+Email: wenjun.9707@gmail.com
+Copyright (c): 2024 by wenjun-VCC, All Rights Reserved.
+'''
 import torch
 import torch.nn as nn
 
@@ -23,7 +33,6 @@ Resnet18 = resnet18_3d(
     proj_out_dims=1024,
     ac_func=nn.ReLU,
     downsample_way='max_pool',  # 'max_pool' or 'conv' or 'avg_pool'
-    use_attn=False,
 )
 
 Resnet34 = resnet34_3d(
@@ -31,7 +40,6 @@ Resnet34 = resnet34_3d(
     proj_out_dims=1024,
     ac_func=nn.ReLU,
     downsample_way='max_pool',
-    use_attn=False,
 )
 
 Resnet50 = resnet50_3d(
@@ -39,24 +47,21 @@ Resnet50 = resnet50_3d(
     proj_out_dims=1024,
     ac_func=nn.ReLU,
     downsample_way='max_pool',
-    use_attn=False,
 )
 
-Resnet101 = resnet101_3d(
-    in_dims=3,
-    proj_out_dims=1024,
-    ac_func=nn.ReLU,
-    downsample_way='max_pool',
-    use_attn=False,
-)
+# Resnet101 = resnet101_3d(
+#     in_dims=3,
+#     proj_out_dims=1024,
+#     ac_func=nn.ReLU,
+#     downsample_way='max_pool',
+# )
 
-Resnet152 = resnet152_3d(
-    in_dims=3,
-    proj_out_dims=1024,
-    ac_func=nn.ReLU,
-    downsample_way='max_pool',
-    use_attn=False,
-)
+# Resnet152 = resnet152_3d(
+#     in_dims=3,
+#     proj_out_dims=1024,
+#     ac_func=nn.ReLU,
+#     downsample_way='max_pool',
+# )
 
 
 # custom module
@@ -70,7 +75,6 @@ ResnetCustom = ShallowResnet3d(
     dims=[32, 64, 128, 256, 384],
     ac_func=nn.ReLU,
     downsample_way='conv',
-    use_attn=False,
 )
 
 
