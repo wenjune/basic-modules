@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-15 15:43:03
+LastEditTime: 2024-08-17 16:59:25
 FilePath: \BasicMoudles\modules\attention.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -91,7 +91,7 @@ class ConvAttention(nn.Module):
             return out
     
     
-class LinearAttention(nn.Module):
+class MHA(nn.Module):
     
     def __init__(
         self,
@@ -100,7 +100,7 @@ class LinearAttention(nn.Module):
         dim_head: int=None,
         atten_dropout: float=None,
     ) -> None:
-        super(LinearAttention, self).__init__()
+        super(MHA, self).__init__()
         
         self.dim = dim
         self.dim_head = dim//nheads if dim_head is None else dim_head

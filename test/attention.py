@@ -6,7 +6,7 @@ import sys
 ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_PATH)
 
-from modules.attention import LinearAttention, ConvAttention
+from modules.attention import MHA, ConvAttention
 
 
 def test_conv1d_atten():
@@ -54,7 +54,7 @@ def test_conv3d_atten():
 def test_linear_atten():
     
     x = torch.randn(4, 41, 192)
-    net = LinearAttention(
+    net = MHA(
         dim=192,
         nheads=8,
         dim_head=32,
