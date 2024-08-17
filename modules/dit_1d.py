@@ -2,8 +2,8 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-06-17 20:28:41
-FilePath: dit_1d.py
+LastEditTime: 2024-08-17 23:49:17
+FilePath: \BasicMoudles\modules\dit_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -46,7 +46,7 @@ def modulate(
 
 
 
-class MLP(nn.Module):
+class FeedForward(nn.Module):
     
     def __init__(
         self,
@@ -56,7 +56,7 @@ class MLP(nn.Module):
         ac_func=nn.GELU,
         dropout: float=None,
     ) -> None:
-        super(MLP, self).__init__()
+        super(FeedForward, self).__init__()
         
         self.out_dim = dim if out_dim is None else out_dim
         
@@ -69,7 +69,7 @@ class MLP(nn.Module):
     @beartype   
     def forward(
         self,
-        x: TensorType['bs','sl', 'dim', float],
+        x: TensorType['bs', 'sl', 'dim', float],
     ):
         
         out = self.fc1(x)
@@ -86,21 +86,21 @@ class MultiHeadAttention(nn.Module):
     def __init__(
         self,
         d_model: int,
-        n_heads: int=8,
+        nheads: int=8,
         qkv_bias: bool=False,
         is_causal: bool=False,
-        atten_dropout: float=None,
+        dropout: float=None,
     ) -> None:
         super(MultiHeadAttention, self).__init__()
         
-        assert d_model % n_heads == 0, "d_model should divisible by n_heads != 0!"
+        assert d_model % nheads == 0, "d_model should divisible by n_heads != 0!"
         
-        self.d_k = d_model // n_heads
+        self.d_k = d_model // nheads
         self.d_model = d_model
-        self.n_heads = n_heads
+        self.nheads = nheads
         self.is_causal = is_causal
         self.scale = 1./math.sqrt(self.d_k)
-        self.dropout = nn.Identity() if atten_dropout is None else nn.Dropout(atten_dropout)
+        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
         
         self.Qw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wq
         self.Kw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wk
@@ -265,8 +265,8 @@ class AdaLNDiTBlock(nn.Module):
         nheads: int=8,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
-        mlp_dropout: float=None,
-        atten_dropout: float=None,
+        ffd_dropout: float=None,
+        attn_dropout: float=None,
     ):
         super(AdaLNDiTBlock, self).__init__()
         
@@ -274,14 +274,14 @@ class AdaLNDiTBlock(nn.Module):
         self.norm2 = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
         self.attn = MultiHeadAttention(
             d_model=dim,
-            n_heads=nheads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
-            atten_dropout=atten_dropout,
+            dropout=attn_dropout,
         )
-        self.mlp = MLP(
+        self.mlp = FeedForward(
             dim=dim,
             hidden_dim=mlp_hidden_dim,
-            dropout=mlp_dropout,
+            dropout=ffd_dropout,
         )
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
@@ -329,17 +329,17 @@ class CroAttnDitBlock(nn.Module):
         
         self.self_attn = MultiHeadAttention(
             d_model=dim,
-            n_heads=nheads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
-            atten_dropout=atten_dropout,
+            dropout=atten_dropout,
         )
         self.cross_attn = MultiHeadAttention(
             d_model=dim,
-            n_heads=nheads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
-            atten_dropout=atten_dropout,
+            dropout=atten_dropout,
         )
-        self.mlp = MLP(
+        self.mlp = FeedForward(
             dim=dim,
             hidden_dim=mlp_hidden_dim,
             dropout=mlp_dropout,
@@ -351,8 +351,6 @@ class CroAttnDitBlock(nn.Module):
         self,
         x: TensorType['bs', 'sl', 'dim', float],
         cond: TensorType['bs', 'c', 'dim', float],
-        # if c==1, cond is t_embed
-        # if c==2, cond is [t_embed, context]
     ):
         
         residual = x
@@ -377,8 +375,8 @@ class InContextDiTBlock(nn.Module):
         nheads: int=8,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
-        mlp_dropout: float=None,
-        atten_dropout: float=None,
+        ffd_dropout: float=None,
+        attn_dropout: float=None,
     ):
         super(InContextDiTBlock, self).__init__()
         
@@ -387,14 +385,14 @@ class InContextDiTBlock(nn.Module):
         
         self.self_attn = MultiHeadAttention(
             d_model=dim,
-            n_heads=nheads,
+            nheads=nheads,
             qkv_bias=qkv_bias,
-            atten_dropout=atten_dropout,
+            dropout=attn_dropout,
         )
-        self.mlp = MLP(
+        self.mlp = FeedForward(
             dim=dim,
             hidden_dim=mlp_hidden_dim,
-            dropout=mlp_dropout,
+            dropout=ffd_dropout,
         )
         
     
@@ -403,8 +401,6 @@ class InContextDiTBlock(nn.Module):
         self,
         x: TensorType['bs', 'sl', 'dim', float],
         cond: TensorType['bs', 'c', 'dim', float],
-        # if c==1, cond is t_embed
-        # if c==2, cond is [t_embed, context]
     ):
        
         sl = x.shape[1]  # valid sequence length
@@ -471,10 +467,10 @@ class DiT(nn.Module):
         dim: int,
         depth: int=12,
         nheads: int=8,
-        mlp_dropout: float=None,
-        atten_dropout: float=None,
+        ffd_dropout: float=None,
+        attn_dropout: float=None,
         mlp_hidden_dim: int=2048,
-        qkv_bias: bool=True,
+        qkv_bias: bool=False,
         learn_sigma: bool=False,
         block = AdaLNDiTBlock,
     ):
@@ -490,8 +486,8 @@ class DiT(nn.Module):
             nheads=nheads,
             qkv_bias=qkv_bias,
             mlp_hidden_dim=mlp_hidden_dim,
-            mlp_dropout=mlp_dropout,
-            atten_dropout=atten_dropout,
+            ffd_dropout=ffd_dropout,
+            attn_dropout=attn_dropout,
         ) for _ in range(depth)])
 
         self.final_layer = FinalLayer(
@@ -563,10 +559,10 @@ def DiT_1d_AdaLNDiTBlock(
     dim: int,
     depth: int=12,
     nheads: int=8,
-    mlp_dropout: float=None,
-    atten_dropout: float=None,
+    ffd_dropout: float=None,
+    attn_dropout: float=None,
     mlp_hidden_dim: int=2048,
-    qkv_bias: bool=True,
+    qkv_bias: bool=False,
     learn_sigma: bool=False,
 ):
     
@@ -574,8 +570,8 @@ def DiT_1d_AdaLNDiTBlock(
         dim=dim,
         depth=depth,
         nheads=nheads,
-        mlp_dropout=mlp_dropout,
-        atten_dropout=atten_dropout,
+        ffd_dropout=ffd_dropout,
+        attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
         learn_sigma=learn_sigma,
@@ -587,10 +583,10 @@ def DiT_1d_CroAttnDitBlock(
     dim: int,
     depth: int=12,
     nheads: int=8,
-    mlp_dropout: float=None,
-    atten_dropout: float=None,
+    ffd_dropout: float=None,
+    attn_dropout: float=None,
     mlp_hidden_dim: int=2048,
-    qkv_bias: bool=True,
+    qkv_bias: bool=False,
     learn_sigma: bool=False,
 ):
     
@@ -598,8 +594,8 @@ def DiT_1d_CroAttnDitBlock(
         dim=dim,
         depth=depth,
         nheads=nheads,
-        mlp_dropout=mlp_dropout,
-        atten_dropout=atten_dropout,
+        ffd_dropout=ffd_dropout,
+        attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
         learn_sigma=learn_sigma,
@@ -611,10 +607,10 @@ def DiT_1d_InContextDiTBlock(
     dim: int,
     depth: int=12,
     nheads: int=8,
-    mlp_dropout: float=None,
-    atten_dropout: float=None,
+    ffd_dropout: float=None,
+    attn_dropout: float=None,
     mlp_hidden_dim: int=2048,
-    qkv_bias: bool=True,
+    qkv_bias: bool=False,
     learn_sigma: bool=False,
 ):
     
@@ -622,8 +618,8 @@ def DiT_1d_InContextDiTBlock(
         dim=dim,
         depth=depth,
         nheads=nheads,
-        mlp_dropout=mlp_dropout,
-        atten_dropout=atten_dropout,
+        ffd_dropout=ffd_dropout,
+        attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
         learn_sigma=learn_sigma,
