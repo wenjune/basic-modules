@@ -368,7 +368,8 @@ class InContextDiTBlock(nn.Module):
        
         sl = x.shape[1]  # valid sequence length
         
-        x = torch.cat([x, cond], dim=1)
+        # calculate attention scores with context
+        x = torch.cat([x, cond], dim=1)  # x->[bs, sl+1, dim]
         residual = x
         x = self.norm1(x)
         x = self.self_attn(x, x, x)

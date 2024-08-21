@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-14 04:53:35
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-17 17:44:37
+LastEditTime: 2024-08-21 17:52:48
 FilePath: \BasicMoudles\modules\__init__.py
 Description: __discription:___
 Email: wenjun.9707@gmail.com
@@ -16,5 +16,6 @@ __all__ = [
     'sparse_resnet_3d',
     'transformer',
     'dit_1d',
+    'dim_1d',
     'attention',
 ]
