@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-17 23:49:17
+LastEditTime: 2024-08-21 10:46:08
 FilePath: \BasicMoudles\modules\dit_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
@@ -33,6 +33,7 @@ from typing import Optional
 @beartype
 def modulate(
     x: TensorType["batch", "seq_len", "dim", float],
+    *,
     shift: TensorType["batch", 1, "dim", float]=None,
     scale: TensorType["batch", 1, "dim", float]=None,
 ):
@@ -86,9 +87,8 @@ class MultiHeadAttention(nn.Module):
     def __init__(
         self,
         d_model: int,
-        nheads: int=8,
+        nheads: int=16,
         qkv_bias: bool=False,
-        is_causal: bool=False,
         dropout: float=None,
     ) -> None:
         super(MultiHeadAttention, self).__init__()
@@ -98,7 +98,6 @@ class MultiHeadAttention(nn.Module):
         self.d_k = d_model // nheads
         self.d_model = d_model
         self.nheads = nheads
-        self.is_causal = is_causal
         self.scale = 1./math.sqrt(self.d_k)
         self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
         
@@ -116,7 +115,6 @@ class MultiHeadAttention(nn.Module):
         value: TensorType['b', 'vl', 'dim', float],
         *,  # force to use keyword arguments
         key_padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
-        causal_mask: Optional[TensorType[1, 1, 'ql', 'kl', bool]]=None,
     ):
         ''' 
             Params:
@@ -124,7 +122,6 @@ class MultiHeadAttention(nn.Module):
                 key: [bs, k_len, dk, float]
                 value: [bs, v_len, dk, float]
                 key_padding_mask: [bs, 1, 1, k_len, bool]
-                causal_mask: [1, 1, q_len, k_len, bool]
             Return:
                 output: [bs, q_len, (nh*dk)]
                 atten_scores: [bs, nh, q_len, k_len]
@@ -145,11 +142,6 @@ class MultiHeadAttention(nn.Module):
         attention_scores = self._apply_mask(
             score=attention_scores,
             mask=key_padding_mask,
-        )
-        # apply causal mask
-        attention_scores = self._apply_mask(
-            score=attention_scores,
-            mask=causal_mask,
         )
 
         # calculate attention distribution
@@ -210,20 +202,13 @@ class MultiHeadAttention(nn.Module):
         query = self.Qw(query)
         key = self.Kw(key)
         value = self.Vw(value)
-        
-        causal_mask = None
-        if self.is_causal:
-            # usually we just use causal mask in decoder self attention
-            # ql = kl = vl
-            causal_mask = self._make_causal_mask(query)
-            causal_mask = rearrange(causal_mask, '... -> 1 1 ...')  # [1, 1, sl, sl]
+
         if key_padding_mask is not None:
             key_padding_mask = rearrange(key_padding_mask, 'bs kl -> bs 1 1 kl')
         
         output, attention_scores = self.attention(
             query, key, value,
             key_padding_mask=key_padding_mask,
-            causal_mask=causal_mask,
         )
         
         output = self.Ow(output)
@@ -232,28 +217,6 @@ class MultiHeadAttention(nn.Module):
             return output, attention_scores
 
         return output
-        
-
-    @beartype
-    def _make_causal_mask(
-        self,
-        tgt: TensorType['bs', 'sl', 'dim' ,float],
-    ):
-        """causal mask for autoregressive task
-
-        Args:
-            tgt : query
-
-        Returns:
-            bool_mask[1, sl, sl] : [[true, false, false],
-                                    [ture, true,  false],
-                                    [true, true,  true ]]
-        """
-        
-        length = tgt.shape[1]
-        mask = torch.tril(torch.ones((length, length), dtype=torch.bool, device=tgt.device))
-        
-        return mask
     
     
 
@@ -262,7 +225,7 @@ class AdaLNDiTBlock(nn.Module):
     def __init__(
         self,
         dim: int,
-        nheads: int=8,
+        nheads: int=16,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
         ffd_dropout: float=None,
@@ -299,11 +262,11 @@ class AdaLNDiTBlock(nn.Module):
         # all params shape [bs, dim]
         gama1, beta1, alpha1, gama2, beta2, alpha2 = self.adaLN_modulation(cond).chunk(6, dim=-1)
         residual = x
-        x = modulate(self.norm1(x), gama1, beta1)
+        x = modulate(self.norm1(x), shift=gama1, scale=beta1)
         x = self.attn(x, x, x)
         x = residual + alpha1 * x
         residual = x
-        x = modulate(self.norm2(x), gama2, beta2)
+        x = modulate(self.norm2(x), shift=gama2, scale=beta2)
         x = residual + alpha2 * self.mlp(x)
         
         return x
@@ -315,11 +278,11 @@ class CroAttnDitBlock(nn.Module):
     def __init__(
         self,
         dim: int,
-        nheads: int=8,
+        nheads: int=16,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
-        mlp_dropout: float=None,
-        atten_dropout: float=None,
+        ffd_dropout: float=None,
+        attn_dropout: float=None,
     ) -> None:
         super(CroAttnDitBlock, self).__init__()
         
@@ -331,18 +294,18 @@ class CroAttnDitBlock(nn.Module):
             d_model=dim,
             nheads=nheads,
             qkv_bias=qkv_bias,
-            dropout=atten_dropout,
+            dropout=attn_dropout,
         )
         self.cross_attn = MultiHeadAttention(
             d_model=dim,
             nheads=nheads,
             qkv_bias=qkv_bias,
-            dropout=atten_dropout,
+            dropout=attn_dropout,
         )
         self.mlp = FeedForward(
             dim=dim,
             hidden_dim=mlp_hidden_dim,
-            dropout=mlp_dropout,
+            dropout=ffd_dropout,
         )
     
     
@@ -372,7 +335,7 @@ class InContextDiTBlock(nn.Module):
     def __init__(
         self,
         dim: int,
-        nheads: int=8,
+        nheads: int=16,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
         ffd_dropout: float=None,
@@ -452,7 +415,7 @@ class FinalLayer(nn.Module):
             cond = torch.sum(cond, dim=1, keepdim=True)
             
         shift, scale = self.adaLN_modulation(cond).chunk(2, dim=-1)
-        x = modulate(self.norm_final(x), shift, scale)
+        x = modulate(self.norm_final(x), shift=shift, scale=scale)
         
         x = self.linear(x)
         
@@ -466,7 +429,7 @@ class DiT(nn.Module):
         self,
         dim: int,
         depth: int=12,
-        nheads: int=8,
+        nheads: int=16,
         ffd_dropout: float=None,
         attn_dropout: float=None,
         mlp_hidden_dim: int=2048,
@@ -558,7 +521,7 @@ class DiT(nn.Module):
 def DiT_1d_AdaLNDiTBlock(
     dim: int,
     depth: int=12,
-    nheads: int=8,
+    nheads: int=16,
     ffd_dropout: float=None,
     attn_dropout: float=None,
     mlp_hidden_dim: int=2048,
@@ -582,7 +545,7 @@ def DiT_1d_AdaLNDiTBlock(
 def DiT_1d_CroAttnDitBlock(
     dim: int,
     depth: int=12,
-    nheads: int=8,
+    nheads: int=16,
     ffd_dropout: float=None,
     attn_dropout: float=None,
     mlp_hidden_dim: int=2048,
@@ -606,7 +569,7 @@ def DiT_1d_CroAttnDitBlock(
 def DiT_1d_InContextDiTBlock(
     dim: int,
     depth: int=12,
-    nheads: int=8,
+    nheads: int=16,
     ffd_dropout: float=None,
     attn_dropout: float=None,
     mlp_hidden_dim: int=2048,
