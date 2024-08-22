@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-08-22 16:11:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-22 09:07:35
+LastEditTime: 2024-08-22 17:30:39
 Description: Just can run on Linux Platform and on GPU device.
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
