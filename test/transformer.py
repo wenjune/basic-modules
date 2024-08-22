@@ -2,8 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:44:07
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-15 20:45:53
-FilePath: \BasicMoudles\test\transformer.py
+LastEditTime: 2024-08-22 07:59:26
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 

@@ -3,7 +3,6 @@ Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
 LastEditTime: 2024-08-17 16:59:25
-FilePath: \BasicMoudles\modules\attention.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 

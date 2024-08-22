@@ -3,7 +3,6 @@ Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
 LastEditTime: 2024-08-21 10:46:08
-FilePath: \BasicMoudles\modules\dit_1d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 

@@ -3,8 +3,7 @@ Author: wenjun-VCC
 Date: 2024-05-14 18:41:59
 LastEditors: wenjun-VCC
 LastEditTime: 2024-05-14 19:28:02
-FilePath: sparse_resnet_3d.py
-Description: __discription:__
+Description: Just can run on Linux Platform and on GPU device.
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
 '''

@@ -3,7 +3,6 @@ Author: wenjun-VCC
 Date: 2024-05-13 22:40:45
 LastEditors: wenjun-VCC
 LastEditTime: 2024-07-31 15:51:03
-FilePath: resnet_2d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 

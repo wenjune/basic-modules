@@ -3,7 +3,6 @@ Author: wenjun-VCC
 Date: 2024-05-14 19:26:33
 LastEditors: wenjun-VCC
 LastEditTime: 2024-05-14 20:43:36
-FilePath: sparse_resnet_3d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 

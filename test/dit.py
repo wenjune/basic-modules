@@ -3,7 +3,6 @@ Author: wenjun-VCC
 Date: 2024-06-14 02:26:47
 LastEditors: wenjun-VCC
 LastEditTime: 2024-06-14 04:05:00
-FilePath: dit.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -19,19 +18,6 @@ from modules.dit_1d import AdaLNDiTBlock, CroAttnDitBlock, InContextDiTBlock, Di
 from modules.dit_1d import DiT_1d_AdaLNDiTBlock, DiT_1d_CroAttnDitBlock, DiT_1d_InContextDiTBlock
 
 
-def test_AdaLN():
-    
-    x = torch.randn(4, 512, 128)  # [bs, sl, dim]
-    cond = torch.randn(4, 1, 128)  # [bs, 1, dim]
-
-    model = AdaLNDiTBlock(
-        dim=128,
-        n_heads=8,
-    )
-    
-    out = model(x, cond)
-    print(out.shape)  # [bs, sl, dim]
-    
 
 def test_AdaLN():
     

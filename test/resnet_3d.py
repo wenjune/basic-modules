@@ -3,7 +3,6 @@ Author: wenjun-VCC
 Date: 2024-06-14 04:53:35
 LastEditors: wenjun-VCC
 LastEditTime: 2024-08-15 20:33:15
-FilePath: \BasicMoudles\test\resnet_3d.py
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c): 2024 by wenjun-VCC, All Rights Reserved.
