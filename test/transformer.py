@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:44:07
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-22 07:59:26
+LastEditTime: 2024-08-26 12:36:28
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -15,7 +15,7 @@ import sys
 ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_PATH)
 
-from modules.transformer import TransformerEncoder, TransformerDecoder
+from modules.transformer import TransformerEncoder, TransformerDecoder, MultiHeadAttention
 
 
 # test transformer encoder
@@ -126,6 +126,8 @@ if __name__ == '__main__':
     decoder_test()
     
     # autoregressive()
+    
+    print('Done!')
     
     
     

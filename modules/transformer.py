@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-15 20:44:03
+LastEditTime: 2024-08-26 12:34:37
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -29,16 +29,19 @@ class FeedForward(nn.Module):
     def __init__(
         self,
         dim: int,
+        dim_out: int=None,
         hidden_dim: int=2048,
         ac_func=nn.ReLU,
         dropout: float=None,
     ) -> None:
         super(FeedForward, self).__init__()
         
+        self.out_dim = dim if dim_out is None else dim_out
+        
         self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
         self.ac_func = ac_func()
         self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
-        self.fc2 = nn.Linear(in_features=hidden_dim, out_features=dim)
+        self.fc2 = nn.Linear(in_features=hidden_dim, out_features=self.out_dim)
         
     
     @beartype   
