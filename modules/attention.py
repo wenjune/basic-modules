@@ -2,21 +2,54 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-17 16:59:25
+LastEditTime: 2024-08-26 12:50:22
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
 '''
-import math
 import torch
 from torch import nn, einsum
-import torch.nn.functional as F
 
 from beartype import beartype
 from typing import Optional
 from torchtyping import TensorType
 
 from einops import rearrange, reduce, repeat
+
+
+
+
+class FeedForward(nn.Module):
+    
+    def __init__(
+        self,
+        dim: int,
+        out_dim: Optional[int]=None,
+        expansion: int=4,
+        ac_func=nn.GELU,
+        dropout: float=None,
+    ) -> None:
+        super(FeedForward, self).__init__()
+        
+        self.out_dim = dim if out_dim is None else out_dim
+        self.hidden_dim = dim * expansion
+        
+        self.fc1 = nn.Linear(in_features=dim, out_features=self.hidden_dim)
+        self.ac_func = ac_func()
+        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
+        self.fc2 = nn.Linear(in_features=self.hidden_dim, out_features=self.out_dim)
+        
+    
+    @beartype   
+    def forward(
+        self,
+        x: TensorType['bs','sl', 'dim', float],
+    ):
+        
+        x = self.fc2(self.dropout(self.ac_func(self.fc1(x))))
+
+        return x
+
 
 
 def conv_nd(ndim):
