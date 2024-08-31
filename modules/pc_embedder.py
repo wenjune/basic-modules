@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-08-31 16:37:02
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-31 17:50:56
+LastEditTime: 2024-08-31 17:54:18
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c): 2024 by wenjun-VCC, All Rights Reserved.
@@ -307,6 +307,7 @@ class PointNet2Encoder(nn.Module):
     def forward(
         self,
         points: TensorType['bs', 'N', 'dim', float],
+        return_new_xyz: bool=False,
     ):
         
         points = points.permute(0, 2, 1)  # [bs, dim, N]
@@ -316,6 +317,9 @@ class PointNet2Encoder(nn.Module):
             xyz, points = block(xyz, points)
         
         features = self.out_layer(points.permute(0, 2, 1))
+        
+        if return_new_xyz:
+            return features, xyz.permute(0, 2, 1)
         
         return features
 
