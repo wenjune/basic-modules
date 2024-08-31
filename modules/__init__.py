@@ -17,4 +17,5 @@ __all__ = [
     'dit_1d',
     'dim_1d',
     'attention',
+    'pc_embedder',
 ]
