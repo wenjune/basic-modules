@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-26 12:50:22
+LastEditTime: 2024-09-05 00:15:53
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -16,39 +16,6 @@ from torchtyping import TensorType
 
 from einops import rearrange, reduce, repeat
 
-
-
-
-class FeedForward(nn.Module):
-    
-    def __init__(
-        self,
-        dim: int,
-        out_dim: Optional[int]=None,
-        expansion: int=4,
-        ac_func=nn.GELU,
-        dropout: float=None,
-    ) -> None:
-        super(FeedForward, self).__init__()
-        
-        self.out_dim = dim if out_dim is None else out_dim
-        self.hidden_dim = dim * expansion
-        
-        self.fc1 = nn.Linear(in_features=dim, out_features=self.hidden_dim)
-        self.ac_func = ac_func()
-        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
-        self.fc2 = nn.Linear(in_features=self.hidden_dim, out_features=self.out_dim)
-        
-    
-    @beartype   
-    def forward(
-        self,
-        x: TensorType['bs','sl', 'dim', float],
-    ):
-        
-        x = self.fc2(self.dropout(self.ac_func(self.fc1(x))))
-
-        return x
 
 
 
@@ -122,15 +89,18 @@ class ConvAttention(nn.Module):
         else:
             return out
     
-    
+
+
 class MHA(nn.Module):
     
     def __init__(
         self,
         dim: int,
-        nheads: int=8,
-        dim_head: int=None,
-        atten_dropout: float=None,
+        nheads: int=16,
+        dim_head: int=64,
+        qkv_bias: bool=True,
+        attn_drop: float=0.,
+        proj_drop: float=0.,
     ) -> None:
         super(MHA, self).__init__()
         
@@ -140,10 +110,22 @@ class MHA(nn.Module):
         self.nheads = nheads
         self.scale = self.dim_head ** -0.5
         
-        self.dropout = nn.Identity() if atten_dropout is None else nn.Dropout(atten_dropout)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj_drop = nn.Dropout(proj_drop)
         
-        self.to_qkv = nn.Linear(dim, self.hidden_dim*3, bias=False)
+        self.to_q = nn.Linear(dim, self.hidden_dim, bias=qkv_bias)
+        self.to_kv = nn.Linear(dim, self.hidden_dim*2, bias=qkv_bias)
         self.Ow = nn.Linear(self.hidden_dim, dim)
+        
+        self.apply(self.weight_init)
+        
+    
+    def weight_init(self, m):
+        
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
         
     
     @beartype
@@ -182,7 +164,7 @@ class MHA(nn.Module):
         # calculate attention distribution
         # attention_scores = [batch_size, heads, query_len, key_len]
         attention_scores = attention_scores.softmax(dim=-1)
-        attention_scores = self.dropout(attention_scores)
+        attention_scores = self.attn_drop(attention_scores)
         
         # value = [batch_size, value_len, heads, d_k]
         output = torch.einsum('nhql, nlhd -> nqhd', [attention_scores, value])
@@ -210,8 +192,9 @@ class MHA(nn.Module):
     @beartype
     def forward(
         self,
-        x: TensorType['bs', 'ql', 'dim', float],
+        q: TensorType['bs', 'ql', 'dim', float],
         *,  # force to use keyword arguments
+        kv: Optional[TensorType['bs', 'kl', 'dim', float]]=None,
         padding_mask: Optional[TensorType['bs', 'kl', bool]]=None,  # key padding
         return_atten_score: bool=False,
     ):
@@ -226,8 +209,11 @@ class MHA(nn.Module):
             tuple(out_put, new_cache, atten_score): if not use_cache->new_cache is None
         """
         
-        query, key, value = self.to_qkv(x).chunk(3, dim=-1)
-        
+        query = self.to_q(q)
+        if kv is None:
+            key, value = self.to_kv(q).chunk(2, dim=-1)
+        else:
+            key, value = self.to_kv(kv).chunk(2, dim=-1)
         
         if padding_mask is not None:   
             padding_mask = rearrange(padding_mask, 'bs kl -> bs 1 1 kl')
@@ -238,6 +224,7 @@ class MHA(nn.Module):
         )
         
         output = self.Ow(output)
+        output = self.proj_drop(output)
         
         if return_atten_score:
             return output, attention_scores
@@ -245,4 +232,185 @@ class MHA(nn.Module):
         return output
 
 
+
+
+# Agent Attention, borrowed from https://github.com/LeapLabTHU/Agent-Attention/tree/master
+# Simple implementation of Agent Attention for 1D sequence data
+# reference: https://arxiv.org/pdf/2312.08874
+class AgentAttention(nn.Module):
     
+    def __init__(
+        self,
+        dim,
+        nheads=16,
+        nagents=64,
+        seq_len=384,
+        qkv_bias=False,
+        attn_drop=0.,
+        proj_drop=0.,
+    ):
+        super(AgentAttention, self).__init__()
+        
+        assert dim % nheads == 0, f"dim {dim} should be divided by num_heads {nheads}."
+
+        self.nheads = nheads
+        head_dim = dim // nheads
+        self.scale = head_dim ** -0.5
+        
+        # learnable parameters
+        # using learnable parameters to represent the agent tokens
+        self.agent_token = nn.Parameter(torch.zeros(1, nagents, dim))
+        # bias
+        # (1, nh, agent_num, sl) like position embedding
+        self.position_bias = nn.Parameter(torch.zeros(1, nheads, nagents, seq_len))
+        # (1, nh, sl, agent_num)
+        self.agent_bias = nn.Parameter(torch.zeros(1, nheads, seq_len, nagents))
+
+        self.softmax = nn.Softmax(dim=-1)
+        
+        self.to_q = nn.Linear(dim, dim, bias=qkv_bias)
+        self.to_kv = nn.Linear(dim, dim * 2, bias=qkv_bias)
+        self.out_proj = nn.Linear(dim, dim)
+        
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj_drop = nn.Dropout(proj_drop)
+        
+        nn.init.trunc_normal_(self.agent_token, std=.02)
+        nn.init.trunc_normal_(self.position_bias, std=.02)
+        nn.init.trunc_normal_(self.agent_bias, std=.02)
+        
+        self.apply(self.weight_init)
+        
+    
+    def weight_init(self, m):
+        
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
+
+    @beartype
+    def forward(
+        self,
+        x: TensorType['bs', 'sl', 'dim', float],
+    ):
+        
+        q = self.to_q(x)  # query (bs, sl, dim)
+        k, v = self.to_kv(x).chunk(2, dim=-1)  # k,v (bs, sl, dim)
+
+        # (bs, sl, dim) -> (bs, nh, sl, dk)
+        rearrange_qkv = lambda x: rearrange(x, 'b l (h d) -> b h l d', h=self.nheads)
+        q, k, v = map(rearrange_qkv, (q, k, v))
+        
+        # agent token
+        # (1, agent_num, dim) -> (1, nh, agent_num, dk)
+        agent_tokens = rearrange_qkv(self.agent_token)
+
+        # agent attention 
+        # (1, nh, agent_num, dk) x (bs, nh, dk, sl) -> (bs, nh, agent_num, sl)
+        agent_attn = self.softmax((agent_tokens * self.scale) @ k.transpose(-2, -1) + self.position_bias)
+        agent_attn = self.attn_drop(agent_attn)
+        # (bs, nh, agent_num, sl) x (bs, nh, sl, dk) -> (bs, nh, agent_num, dk)
+        agent_v = agent_attn @ v  # Attn(Softmax((agents * scale) @ k + position_bias) @ v)
+        
+        # query attention
+        # (bs, nh, sl, dk) x (bs, nh, dk, agent_num) -> (bs, nh, sl, agent_num)
+        q_attn = self.softmax((q * self.scale) @ agent_tokens.transpose(-2, -1) + self.agent_bias)
+        q_attn = self.attn_drop(q_attn)
+        # (bs, nh, sl, agent_num) x (bs, nh, agent_num, dk) -> (bs, nh, sl, dk)
+        x = q_attn @ agent_v  # Attn(Softmax(q * scale @ agents + agent_bias) @ agent_v)
+        
+        x = rearrange(x, 'b h l d -> b l (h d)')
+
+        x = self.out_proj(x)
+        x = self.proj_drop(x)
+        
+        return x
+    
+
+# Simple implementation of Mediator Attention for 1D sequence data
+# reference: https://arxiv.org/pdf/2408.05710v1
+class MediatorAttention(nn.Module):
+    
+    def __init__(
+        self,
+        dim: int,
+        nheads: int=16,
+        nmediators: int=64,
+        qkv_bias: bool=False,
+        attn_drop: float=0.,
+        proj_drop: float=0.,
+    ):
+        super(MediatorAttention, self).__init__()
+        
+        self.dim = dim
+        self.nheads = nheads
+        self.scale = (dim // nheads) ** -0.5
+        
+        # learnable parameters
+        # mediator tokens
+        self.mediator_token = nn.Parameter(torch.zeros(1, nmediators, dim))
+        
+        self.to_q = nn.Linear(dim, dim, bias=qkv_bias)
+        self.to_kv = nn.Linear(dim, dim*2, bias=qkv_bias)
+        self.out_proj = nn.Linear(dim, dim)
+        
+        self.soft_max = nn.Softmax(dim=-1)
+        
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj_drop = nn.Dropout(proj_drop)
+        
+        nn.init.trunc_normal_(self.mediator_token, std=.02)
+        
+        self.apply(self.weight_init)
+        
+    
+    def weight_init(self, m):
+        
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        
+    
+    @beartype
+    def forward(
+        self,
+        x: TensorType['bs', 'sl', 'dim', float],
+    ):
+        
+        q = self.to_q(x)
+        k, v = self.to_kv(x).chunk(2, dim=-1)
+        
+        # (bs, sl, dim) -> (bs, nh, sl, dk)
+        rearrange_qkv = lambda x: rearrange(x, 'b l (h d) -> b h l d', h=self.nheads)
+        q, k, v = map(rearrange_qkv, (q, k, v))
+        
+        # agent token
+        # (1, agent_num, dim) -> (1, nh, agent_num, dk)
+        mediator_tokens = rearrange_qkv(self.mediator_token)
+        
+        # mk attention
+        # (1, nh, mediator_num, dk) x (bs, nh, dk, sl) -> (bs, nh, mediator_num, sl)
+        mk_attn = self.soft_max(mediator_tokens @ k.transpose(-2, -1) * self.scale)
+        mk_attn = self.attn_drop(mk_attn)
+        # (bs, nh, mediator_num, sl) x (bs, nh, sl, dk) -> (bs, nh, mediator_num, dk)
+        mk_v = mk_attn @ v  # Attn(Softmax(mediators @ k) * scale @ v)
+        
+        # qm attention
+        # (bs, nh, sl, dk) x (bs, nh, dk, mediator_num) -> (bs, nh, sl, mediator_num)
+        qm_attn = self.soft_max(q @ mediator_tokens.transpose(-2, -1) * self.scale)
+        qm_attn = self.attn_drop(qm_attn)
+        # (bs, nh, sl, mediator_num) x (bs, nh, mediator_num, dk) -> (bs, nh, sl, dk)
+        x = qm_attn @ mk_v  # Attn(Softmax(q @ mediators) * scale @ mk_v)
+        
+        x = rearrange(x, 'b h l d -> b l (h d)')
+        
+        x = self.out_proj(x)
+        x = self.proj_drop(x)
+        
+        return x
+        
+        
+        
