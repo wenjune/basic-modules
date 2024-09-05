@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-05 09:33:58
+LastEditTime: 2024-09-05 09:44:14
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -251,6 +251,8 @@ class AgentAttention(nn.Module):
     ):
         super(AgentAttention, self).__init__()
         
+        # Out = Proj(Attn(Q, A, Attn(A, K, V)))
+        
         assert dim % nheads == 0, f"dim {dim} should be divided by num_heads {nheads}."
 
         self.nheads = nheads
@@ -329,6 +331,7 @@ class AgentAttention(nn.Module):
         return x
     
 
+
 # Simple implementation of Mediator Attention for 1D sequence data
 # reference: https://arxiv.org/pdf/2408.05710v1
 class MediatorAttention(nn.Module):
@@ -343,6 +346,8 @@ class MediatorAttention(nn.Module):
         proj_drop: float=0.,
     ):
         super(MediatorAttention, self).__init__()
+        
+        # Out = Proj(Softmax(Q @ Meditors.T * scale) * Softmax(Mediators @ K * scale) @ V)
         
         assert dim % nheads == 0, f"dim {dim} should be divided by num_heads {nheads}."
         
