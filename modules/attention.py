@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-05 00:15:53
+LastEditTime: 2024-09-05 09:33:58
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -343,6 +343,8 @@ class MediatorAttention(nn.Module):
         proj_drop: float=0.,
     ):
         super(MediatorAttention, self).__init__()
+        
+        assert dim % nheads == 0, f"dim {dim} should be divided by num_heads {nheads}."
         
         self.dim = dim
         self.nheads = nheads
