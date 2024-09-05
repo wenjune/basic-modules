@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-26 12:34:37
+LastEditTime: 2024-09-05 11:59:08
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -32,7 +32,7 @@ class FeedForward(nn.Module):
         dim_out: int=None,
         hidden_dim: int=2048,
         ac_func=nn.ReLU,
-        dropout: float=None,
+        dropout: float=0.0,
     ) -> None:
         super(FeedForward, self).__init__()
         
@@ -40,7 +40,7 @@ class FeedForward(nn.Module):
         
         self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
         self.ac_func = ac_func()
-        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(in_features=hidden_dim, out_features=self.out_dim)
         
     
@@ -67,7 +67,7 @@ class MultiHeadAttention(nn.Module):
         nheads: int=8,
         qkv_bias: bool=False,
         is_causal: bool=False,
-        dropout: float=None,
+        dropout: float=0.0,
     ) -> None:
         super(MultiHeadAttention, self).__init__()
         
@@ -79,7 +79,7 @@ class MultiHeadAttention(nn.Module):
         self.is_causal = is_causal
         self.scale = 1./math.sqrt(self.d_k)
         
-        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         
         self.Qw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wq
         self.Kw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wk
@@ -260,8 +260,8 @@ class EncoderBlock(nn.Module):
         nheads: int=8,
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
     ) -> None:
@@ -333,8 +333,8 @@ class DecoderBlock(nn.Module):
         nheads: int=8,
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=True,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
         is_cross_attn: bool=False,
         is_causal: bool=True,
         ac_func=nn.ReLU,
@@ -431,8 +431,8 @@ class TransformerEncoder(nn.Module):
         nheads: int=8,
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
         ac_func=nn.ReLU,
         norm=nn.LayerNorm,
     ) -> None:
@@ -493,8 +493,8 @@ class TransformerDecoder(nn.Module):
         nheads: int=8,
         qkv_bias: bool=False,
         mlp_hidden_dim: int=2048,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
         is_cross_attn: bool=False,
         is_causal: bool=True,
         ac_func=nn.ReLU,

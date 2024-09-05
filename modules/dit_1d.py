@@ -54,7 +54,7 @@ class FeedForward(nn.Module):
         out_dim: int=None,
         hidden_dim: int=2048,
         ac_func=nn.GELU,
-        dropout: float=None,
+        dropout: float=0.0,
     ) -> None:
         super(FeedForward, self).__init__()
         
@@ -62,7 +62,7 @@ class FeedForward(nn.Module):
         
         self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
         self.ac_func = ac_func()
-        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(in_features=hidden_dim, out_features=self.out_dim)
         
     
@@ -88,7 +88,7 @@ class MultiHeadAttention(nn.Module):
         d_model: int,
         nheads: int=16,
         qkv_bias: bool=False,
-        dropout: float=None,
+        dropout: float=0.0,
     ) -> None:
         super(MultiHeadAttention, self).__init__()
         
@@ -98,7 +98,7 @@ class MultiHeadAttention(nn.Module):
         self.d_model = d_model
         self.nheads = nheads
         self.scale = 1./math.sqrt(self.d_k)
-        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         
         self.Qw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wq
         self.Kw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wk
@@ -227,8 +227,8 @@ class AdaLNDiTBlock(nn.Module):
         nheads: int=16,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
     ):
         super(AdaLNDiTBlock, self).__init__()
         
@@ -280,8 +280,8 @@ class CroAttnDitBlock(nn.Module):
         nheads: int=16,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
     ) -> None:
         super(CroAttnDitBlock, self).__init__()
         
@@ -337,8 +337,8 @@ class InContextDiTBlock(nn.Module):
         nheads: int=16,
         qkv_bias: bool=True,
         mlp_hidden_dim: int=2048,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
     ):
         super(InContextDiTBlock, self).__init__()
         
@@ -430,8 +430,8 @@ class DiT(nn.Module):
         dim: int,
         depth: int=12,
         nheads: int=16,
-        ffd_dropout: float=None,
-        attn_dropout: float=None,
+        ffd_dropout: float=0.0,
+        attn_dropout: float=0.0,
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
         learn_sigma: bool=False,
@@ -522,8 +522,8 @@ def DiT_1d_AdaLNDiTBlock(
     dim: int,
     depth: int=12,
     nheads: int=16,
-    ffd_dropout: float=None,
-    attn_dropout: float=None,
+    ffd_dropout: float=0.0,
+    attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
     learn_sigma: bool=False,
@@ -546,8 +546,8 @@ def DiT_1d_CroAttnDitBlock(
     dim: int,
     depth: int=12,
     nheads: int=16,
-    ffd_dropout: float=None,
-    attn_dropout: float=None,
+    ffd_dropout: float=0.0,
+    attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
     learn_sigma: bool=False,
@@ -570,8 +570,8 @@ def DiT_1d_InContextDiTBlock(
     dim: int,
     depth: int=12,
     nheads: int=16,
-    ffd_dropout: float=None,
-    attn_dropout: float=None,
+    ffd_dropout: float=0.0,
+    attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
     learn_sigma: bool=False,

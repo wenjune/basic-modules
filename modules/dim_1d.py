@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-08-22 16:11:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-22 17:30:39
+LastEditTime: 2024-09-05 12:01:46
 Description: Just can run on Linux Platform and on GPU device.
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -54,7 +54,7 @@ class FeedForward(nn.Module):
         out_dim: int=None,
         hidden_dim: int=2048,
         ac_func=nn.GELU,
-        dropout: float=None,
+        dropout: float=0.0,
     ) -> None:
         super(FeedForward, self).__init__()
         
@@ -62,7 +62,7 @@ class FeedForward(nn.Module):
         
         self.fc1 = nn.Linear(in_features=dim, out_features=hidden_dim)
         self.ac_func = ac_func()
-        self.dropout = nn.Identity() if dropout is None else nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(in_features=hidden_dim, out_features=self.out_dim)
         
     
@@ -90,7 +90,7 @@ class AdaLNDiMBlock(nn.Module):
         d_conv: int=4,
         mamba_expand: int=2,
         mlp_hidden_dim: int=2048,
-        ffd_dropout: float=None,
+        ffd_dropout: float=0.0,
         block_type: str='mamba1',  # 'mamba1' or 'mamba2'
     ):
         super(AdaLNDiMBlock, self).__init__()
@@ -187,7 +187,7 @@ class DiM(nn.Module):
         d_state: int=64,
         d_conv: int=4,
         mamba_expand: int=2,
-        ffd_dropout: float=None,
+        ffd_dropout: float=0.0,
         mlp_hidden_dim: int=2048,
         block_type: str='mamba1',  # 'mamba1' or 'mamba2'
         learn_sigma: bool=False,
@@ -273,7 +273,7 @@ def DiM_1d_AdaLNDiMBlock(
     d_state: int=64,
     d_conv: int=4,
     mamba_expand: int=2,
-    ffd_dropout: float=None,
+    ffd_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     block_type: str='mamba1',  # 'mamba1' or 'mamba2'
     learn_sigma: bool=False,
