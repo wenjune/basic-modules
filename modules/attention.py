@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-07-30 23:27:22
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-05 09:44:14
+LastEditTime: 2024-09-08 04:05:41
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -134,8 +134,6 @@ class MHA(nn.Module):
         query: TensorType['b', 'ql', 'dim', float],
         key: TensorType['b', 'ql', 'dim', float],
         value: TensorType['b', 'ql', 'dim', float],
-        *,  # force to use keyword arguments
-        padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,  # just for 1d attention
     ):
         ''' 
         Args:
@@ -153,13 +151,6 @@ class MHA(nn.Module):
 
         # calculate attention scores: [batch_size, heads, query_len, key_len]
         attention_scores = torch.einsum('nqhd, nkhd -> nhqk', [query, key]) * self.scale
-        
-        # apply masks
-        # apply padding mask
-        attention_scores = self._apply_mask(
-            score=attention_scores,
-            mask=padding_mask,
-        )
 
         # calculate attention distribution
         # attention_scores = [batch_size, heads, query_len, key_len]
@@ -171,22 +162,6 @@ class MHA(nn.Module):
         output = rearrange(output, 'b s h d -> b s (h d)')
         
         return output, attention_scores
-    
-    
-    @beartype
-    def _apply_mask(
-        self,
-        *,  # force to use keyword arguments
-        score: TensorType['bs', 'h', 'ql', 'kl', float],
-        mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
-    ):
-        
-        if mask is not None:
-            score = score.masked_fill(~mask, float(-1e10))
-            return score
-        
-        else:
-            return score
         
         
     @beartype
@@ -195,7 +170,6 @@ class MHA(nn.Module):
         q: TensorType['bs', 'ql', 'dim', float],
         *,  # force to use keyword arguments
         kv: Optional[TensorType['bs', 'kl', 'dim', float]]=None,
-        padding_mask: Optional[TensorType['bs', 'kl', bool]]=None,  # key padding
         return_atten_score: bool=False,
     ):
         """ MultiheadAttention forward
@@ -203,7 +177,6 @@ class MHA(nn.Module):
 
         Args:
             x (TensorType[bs, ql, dim, float]): in self-atten q=k=v
-            padding_mask (TensorType[bs, kl, bool], optional): mask the padding locations. Defaults to None.
 
         Returns:
             tuple(out_put, new_cache, atten_score): if not use_cache->new_cache is None
@@ -215,12 +188,8 @@ class MHA(nn.Module):
         else:
             key, value = self.to_kv(kv).chunk(2, dim=-1)
         
-        if padding_mask is not None:   
-            padding_mask = rearrange(padding_mask, 'bs kl -> bs 1 1 kl')
-        
         output, attention_scores = self.attention(
             query, key, value,
-            padding_mask=padding_mask,
         )
         
         output = self.Ow(output)
