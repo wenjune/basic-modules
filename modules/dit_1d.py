@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-21 10:46:08
+LastEditTime: 2024-09-08 03:46:33
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -142,7 +142,7 @@ class MultiHeadAttention(nn.Module):
             score=attention_scores,
             mask=key_padding_mask,
         )
-
+        
         # calculate attention distribution
         attention_scores = attention_scores.softmax(dim=-1)
         attention_scores = self.dropout(attention_scores)
@@ -179,9 +179,9 @@ class MultiHeadAttention(nn.Module):
     def forward(
         self,
         query: TensorType['bs', 'ql', 'dim', float],
-        key: TensorType['bs', 'kl', 'dim', float],
-        value: TensorType['bs', 'vl', 'dim', float],
         *,  # force to use keyword arguments
+        key: Optional[TensorType['bs', 'kl', 'dim', float]]=None,
+        value: Optional[TensorType['bs', 'vl', 'dim', float]]=None,
         return_scores: bool=False,
         key_padding_mask: Optional[TensorType['bs', 'kl', bool]]=None,  # key padding
     ):
@@ -197,6 +197,9 @@ class MultiHeadAttention(nn.Module):
         Returns:
             tuple(output, atten_score) or (output)
         """
+        
+        if key is None:
+            key = value = query
         
         query = self.Qw(query)
         key = self.Kw(key)
@@ -262,7 +265,7 @@ class AdaLNDiTBlock(nn.Module):
         gama1, beta1, alpha1, gama2, beta2, alpha2 = self.adaLN_modulation(cond).chunk(6, dim=-1)
         residual = x
         x = modulate(self.norm1(x), shift=gama1, scale=beta1)
-        x = self.attn(x, x, x)
+        x = self.attn(x)
         x = residual + alpha1 * x
         residual = x
         x = modulate(self.norm2(x), shift=gama2, scale=beta2)
@@ -317,10 +320,10 @@ class CroAttnDitBlock(nn.Module):
         
         residual = x
         x = self.norm1(x)
-        x = residual + self.self_attn(x, x, x)
+        x = residual + self.self_attn(x)
         residual = x
         x = self.norm2(x)
-        x = residual + self.cross_attn(x, cond, cond)
+        x = residual + self.cross_attn(x, key=cond, value=cond)
         residual = x
         x = self.norm3(x)
         x = residual + self.mlp(x)
@@ -371,7 +374,7 @@ class InContextDiTBlock(nn.Module):
         x = torch.cat([x, cond], dim=1)  # x->[bs, sl+1, dim]
         residual = x
         x = self.norm1(x)
-        x = self.self_attn(x, x, x)
+        x = self.self_attn(x)
         x = residual + x
         residual = x
         x = self.norm2(x)
