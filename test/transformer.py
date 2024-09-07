@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:44:07
 LastEditors: wenjun-VCC
-LastEditTime: 2024-08-26 12:36:28
+LastEditTime: 2024-09-08 02:07:11
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -122,10 +122,10 @@ def autoregressive():
 
 if __name__ == '__main__':
     
-    encoder_test()
-    decoder_test()
+    # encoder_test()
+    # decoder_test()
     
-    # autoregressive()
+    autoregressive()
     
     print('Done!')
     

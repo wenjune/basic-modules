@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-08 01:48:03
+LastEditTime: 2024-09-08 02:06:17
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -91,8 +91,8 @@ class MultiHeadAttention(nn.Module):
     def attention(
         self,
         query: TensorType['b', 'ql', 'dim', float],
-        key: TensorType['b', 'kl', 'dim', float],
-        value: TensorType['b', 'vl', 'dim', float],
+        key: TensorType['bs', 'kl', 'dim', float],
+        value: TensorType['bs', 'vl', 'dim', float],
         *,  # force to use keyword arguments
         key_padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
         causal_mask: Optional[TensorType[1, 1, 'ql', 'kl', bool]]=None,
@@ -108,6 +108,7 @@ class MultiHeadAttention(nn.Module):
             output: [bs, q_len, (nh*dk)]
             atten_scores: [bs, nh, q_len, k_len]
         '''
+        
         # reshape (Q, K, V) to multi-head vector
         # query : ->[bs, query_len, heads, dk]
         query = rearrange(query, 'b q (h dk) -> b q h dk', dk=self.d_k)
@@ -163,9 +164,9 @@ class MultiHeadAttention(nn.Module):
     def forward(
         self,
         query: TensorType['bs', 'ql', 'dim', float],
-        key: TensorType['bs', 'kl', 'dim', float],
-        value: TensorType['bs', 'vl', 'dim', float],
         *,  # force to use keyword arguments
+        key: Optional[TensorType['b', 'kl', 'dim', float]]=None,
+        value: Optional[TensorType['b', 'vl', 'dim', float]]=None,
         key_padding_mask: Optional[TensorType['bs', 'kl', bool]]=None,  # key padding
         use_cache: bool=False,
         kv_cache=None,  # using kv_cache to accelerate the inference process
@@ -184,6 +185,9 @@ class MultiHeadAttention(nn.Module):
         Returns:
             tuple(out_put, new_cache, atten_score): if not use_cache->new_cache is None
         """
+        
+        if key is None:
+            key = value = query
         
         query = self.Qw(query)
         key = self.Kw(key)
@@ -306,15 +310,13 @@ class EncoderBlock(nn.Module):
         
         # in transformer encoder, we just have the source mask to mask padding tokens
         # and in inference process we didn't use cache
-        residual = query
+
         # pre-norm for stability
-        query = self.norm1(query)
         attention, _, attention_scores = self.self_atten_block(
-            query, query, query,
-            key_padding_mask=src_mask,
+            self.norm1(query), key_padding_mask=src_mask,
         )
         
-        x = residual + attention
+        x = query + attention
         
         forward = self.feed_forward_block(self.norm2(x))
         
@@ -394,24 +396,20 @@ class DecoderBlock(nn.Module):
             tgt_mask: from docoder input for self atten block
         '''
         
-        residual = tgt
-        tgt = self.norm1(tgt)
-        
         self_attention, new_cache, self_attention_scores = self.self_atten_block(
-            tgt, tgt, tgt,
+            self.norm1(tgt),
             key_padding_mask=tgt_mask,
             use_cache=use_cache,
             kv_cache=kv_cache,
         )
         
-        tgt = residual + self_attention
+        tgt = tgt + self_attention
         
         cros_attention_scores = None
-        
         if self.is_cross_attn:
             
             cros_attention, _, cros_attention_scores = self.cross_atten_block(
-                self.norm2(tgt), encoder_output, encoder_output,
+                self.norm2(tgt), key=encoder_output, value=encoder_output,
                 key_padding_mask=src_mask,
             )
         
