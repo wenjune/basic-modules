@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-08 02:06:17
+LastEditTime: 2024-09-08 06:47:51
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -31,7 +31,7 @@ class FeedForward(nn.Module):
         dim: int,
         dim_out: int=None,
         hidden_dim: int=2048,
-        ac_func=nn.ReLU,
+        ac_func=nn.GELU,
         dropout: float=0.0,
     ) -> None:
         super(FeedForward, self).__init__()
@@ -266,7 +266,7 @@ class EncoderBlock(nn.Module):
         qkv_bias: bool=False,
         ffd_dropout: float=0.0,
         attn_dropout: float=0.0,
-        ac_func=nn.ReLU,
+        ac_func=nn.GELU,
         norm=nn.LayerNorm,
     ) -> None:
         super(EncoderBlock, self).__init__()
@@ -342,7 +342,7 @@ class DecoderBlock(nn.Module):
         attn_dropout: float=0.0,
         is_cross_attn: bool=False,
         is_causal: bool=True,
-        ac_func=nn.ReLU,
+        ac_func=nn.GELU,
         norm=nn.LayerNorm,
     ) -> None:
         super(DecoderBlock, self).__init__()
@@ -437,7 +437,7 @@ class TransformerEncoder(nn.Module):
         qkv_bias: bool=False,
         ffd_dropout: float=0.0,
         attn_dropout: float=0.0,
-        ac_func=nn.ReLU,
+        ac_func=nn.GELU,
         norm=nn.LayerNorm,
     ) -> None:
         super(TransformerEncoder, self).__init__()
@@ -501,7 +501,7 @@ class TransformerDecoder(nn.Module):
         attn_dropout: float=0.0,
         is_cross_attn: bool=False,
         is_causal: bool=True,
-        ac_func=nn.ReLU,
+        ac_func=nn.GELU,
         norm=nn.LayerNorm,
     ) -> None:
         super(TransformerDecoder, self).__init__()
