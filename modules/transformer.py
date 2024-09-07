@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-05-13 22:41:43
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-05 11:59:08
+LastEditTime: 2024-09-08 01:48:03
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -306,16 +306,19 @@ class EncoderBlock(nn.Module):
         
         # in transformer encoder, we just have the source mask to mask padding tokens
         # and in inference process we didn't use cache
+        residual = query
+        # pre-norm for stability
+        query = self.norm1(query)
         attention, _, attention_scores = self.self_atten_block(
             query, query, query,
             key_padding_mask=src_mask,
         )
         
-        x = self.norm1(query + attention)
+        x = residual + attention
         
-        forward = self.feed_forward_block(x)
+        forward = self.feed_forward_block(self.norm2(x))
         
-        out = self.norm2(forward + x)
+        out = forward + x
         
         if return_scores:
         
@@ -391,6 +394,9 @@ class DecoderBlock(nn.Module):
             tgt_mask: from docoder input for self atten block
         '''
         
+        residual = tgt
+        tgt = self.norm1(tgt)
+        
         self_attention, new_cache, self_attention_scores = self.self_atten_block(
             tgt, tgt, tgt,
             key_padding_mask=tgt_mask,
@@ -398,22 +404,22 @@ class DecoderBlock(nn.Module):
             kv_cache=kv_cache,
         )
         
-        tgt = self.norm1(tgt + self_attention)
+        tgt = residual + self_attention
         
         cros_attention_scores = None
         
         if self.is_cross_attn:
             
             cros_attention, _, cros_attention_scores = self.cross_atten_block(
-                tgt, encoder_output, encoder_output,
+                self.norm2(tgt), encoder_output, encoder_output,
                 key_padding_mask=src_mask,
             )
         
-            tgt = self.norm2(tgt + cros_attention)
+            tgt = tgt + cros_attention
         
-        ffd = self.feed_forward_block(tgt)
+        ffd = self.feed_forward_block(self.norm3(tgt))
         
-        out = self.norm3(tgt + ffd)
+        out = tgt + ffd
         
         if return_scores:
         
