@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-08 03:46:33
+LastEditTime: 2024-09-30 21:38:00
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -10,9 +10,6 @@ Copyright (c) 2024 by wenjun/VCC, All Rights Reserved.
 
 import torch
 import torch.nn as nn
-import numpy as np
-import math
-from einops import rearrange, repeat
 from torchtyping import TensorType
 from beartype import beartype
 from typing import Optional
@@ -78,148 +75,7 @@ class FeedForward(nn.Module):
         out = self.fc2(out)
         
         return out
-        
 
-
-class MultiHeadAttention(nn.Module):
-    
-    def __init__(
-        self,
-        d_model: int,
-        nheads: int=16,
-        qkv_bias: bool=False,
-        dropout: float=0.0,
-    ) -> None:
-        super(MultiHeadAttention, self).__init__()
-        
-        assert d_model % nheads == 0, "d_model should divisible by n_heads != 0!"
-        
-        self.d_k = d_model // nheads
-        self.d_model = d_model
-        self.nheads = nheads
-        self.scale = 1./math.sqrt(self.d_k)
-        self.dropout = nn.Dropout(dropout)
-        
-        self.Qw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wq
-        self.Kw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wk
-        self.Vw = nn.Linear(d_model, d_model, bias=qkv_bias)  # Wv
-        self.Ow = nn.Linear(d_model, d_model, bias=True)
-        
-    
-    @beartype
-    def attention(
-        self,
-        query: TensorType['b', 'ql', 'dim', float],
-        key: TensorType['b', 'kl', 'dim', float],
-        value: TensorType['b', 'vl', 'dim', float],
-        *,  # force to use keyword arguments
-        key_padding_mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
-    ):
-        ''' 
-            Params:
-                query: [bs, q_len, dk, float]
-                key: [bs, k_len, dk, float]
-                value: [bs, v_len, dk, float]
-                key_padding_mask: [bs, 1, 1, k_len, bool]
-            Return:
-                output: [bs, q_len, (nh*dk)]
-                atten_scores: [bs, nh, q_len, k_len]
-        '''
-        # reshape (Q, K, V) to multi-head vector
-        # query : ->[bs, query_len, heads, dk]
-        query = rearrange(query, 'b q (h dk) -> b q h dk', dk=self.d_k)
-        # key   : ->[bs, key_len, heads, dk]
-        key = rearrange(key, 'b k (h dk) -> b k h dk', dk=self.d_k)
-        # value : ->[bs, value_len, heads, dk]
-        value = rearrange(value, 'b v (h dk) -> b v h dk', dk=self.d_k)
-        
-        # calculate attention scores: [batch_size, heads, query_len, key_len]
-        attention_scores = torch.einsum('nqhd, nkhd -> nhqk', [query, key]) * self.scale
-        
-        # apply masks
-        # apply key padding mask
-        attention_scores = self._apply_mask(
-            score=attention_scores,
-            mask=key_padding_mask,
-        )
-        
-        # calculate attention distribution
-        attention_scores = attention_scores.softmax(dim=-1)
-        attention_scores = self.dropout(attention_scores)
-        
-        # attention_scores = [batch_size, heads, query_len, key_len]
-        # value = [batch_size, value_len, heads, d_k]
-        # key_len = value_len [batch_size, query_len, heads, d_k]
-        output = torch.einsum('nhql, nlhd -> nqhd', [attention_scores, value])
-        output = rearrange(output, 'b s h d -> b s (h d)')
-        
-        return output, attention_scores
-    
-    
-    @beartype
-    def _apply_mask(
-        self,
-        *,  # force to use keyword arguments
-        score: TensorType['bs', 'h', 'ql', 'kl', float],
-        mask: Optional[TensorType['bs', 1, 1, 'kl', bool]]=None,
-    ):
-        
-        if mask is not None:
-            
-            score = score.masked_fill(~mask, float(-1e10))
-            
-            return score
-        
-        else:
-            
-            return score
-        
-        
-    @beartype
-    def forward(
-        self,
-        query: TensorType['bs', 'ql', 'dim', float],
-        *,  # force to use keyword arguments
-        key: Optional[TensorType['bs', 'kl', 'dim', float]]=None,
-        value: Optional[TensorType['bs', 'vl', 'dim', float]]=None,
-        return_scores: bool=False,
-        key_padding_mask: Optional[TensorType['bs', 'kl', bool]]=None,  # key padding
-    ):
-        """ MultiheadAttention forward
-            include kv_cache
-
-        Args:
-            query (TensorType[bs, ql, dim, float]): in self-atten q=k=v
-            key (TensorType[bs, kl, dim, float]): kl=vl
-            value (TensorType[bs, vl, dim, float]):
-            key_padding_mask (TensorType[bs, kl, bool], optional): mask the padding locations. Defaults to None.
-            return_scores (bool, optional): return attention scores. Defaults to False.
-        Returns:
-            tuple(output, atten_score) or (output)
-        """
-        
-        if key is None:
-            key = value = query
-        
-        query = self.Qw(query)
-        key = self.Kw(key)
-        value = self.Vw(value)
-
-        if key_padding_mask is not None:
-            key_padding_mask = rearrange(key_padding_mask, 'bs kl -> bs 1 1 kl')
-        
-        output, attention_scores = self.attention(
-            query, key, value,
-            key_padding_mask=key_padding_mask,
-        )
-        
-        output = self.Ow(output)
-        
-        if return_scores:
-            return output, attention_scores
-
-        return output
-    
     
 
 class AdaLNDiTBlock(nn.Module):
@@ -237,11 +93,12 @@ class AdaLNDiTBlock(nn.Module):
         
         self.norm1 = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
         self.norm2 = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
-        self.attn = MultiHeadAttention(
-            d_model=dim,
-            nheads=nheads,
-            qkv_bias=qkv_bias,
+        self.attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=nheads,
+            add_bias_kv=qkv_bias,
             dropout=attn_dropout,
+            batch_first=True,
         )
         self.mlp = FeedForward(
             dim=dim,
@@ -265,7 +122,7 @@ class AdaLNDiTBlock(nn.Module):
         gama1, beta1, alpha1, gama2, beta2, alpha2 = self.adaLN_modulation(cond).chunk(6, dim=-1)
         residual = x
         x = modulate(self.norm1(x), shift=gama1, scale=beta1)
-        x = self.attn(x)
+        x = self.attn(query=x, key=x, value=x, need_weights=False)[0]
         x = residual + alpha1 * x
         residual = x
         x = modulate(self.norm2(x), shift=gama2, scale=beta2)
@@ -292,17 +149,19 @@ class CroAttnDitBlock(nn.Module):
         self.norm2 = nn.LayerNorm(dim)
         self.norm3 = nn.LayerNorm(dim)
         
-        self.self_attn = MultiHeadAttention(
-            d_model=dim,
-            nheads=nheads,
-            qkv_bias=qkv_bias,
+        self.self_attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=nheads,
+            add_bias_kv=qkv_bias,
             dropout=attn_dropout,
+            batch_first=True,
         )
-        self.cross_attn = MultiHeadAttention(
-            d_model=dim,
-            nheads=nheads,
-            qkv_bias=qkv_bias,
+        self.cross_attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=nheads,
+            add_bias_kv=qkv_bias,
             dropout=attn_dropout,
+            batch_first=True,
         )
         self.mlp = FeedForward(
             dim=dim,
@@ -320,10 +179,10 @@ class CroAttnDitBlock(nn.Module):
         
         residual = x
         x = self.norm1(x)
-        x = residual + self.self_attn(x)
+        x = residual + self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
         residual = x
         x = self.norm2(x)
-        x = residual + self.cross_attn(x, key=cond, value=cond)
+        x = residual + self.cross_attn(query=x, key=cond, value=cond, need_weights=False)[0]
         residual = x
         x = self.norm3(x)
         x = residual + self.mlp(x)
@@ -348,11 +207,12 @@ class InContextDiTBlock(nn.Module):
         self.norm1 = nn.LayerNorm(dim)
         self.norm2 = nn.LayerNorm(dim)
         
-        self.self_attn = MultiHeadAttention(
-            d_model=dim,
-            nheads=nheads,
-            qkv_bias=qkv_bias,
+        self.self_attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=nheads,
+            add_bias_kv=qkv_bias,
             dropout=attn_dropout,
+            batch_first=True,
         )
         self.mlp = FeedForward(
             dim=dim,
@@ -374,7 +234,7 @@ class InContextDiTBlock(nn.Module):
         x = torch.cat([x, cond], dim=1)  # x->[bs, sl+1, dim]
         residual = x
         x = self.norm1(x)
-        x = self.self_attn(x)
+        x = self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
         x = residual + x
         residual = x
         x = self.norm2(x)
