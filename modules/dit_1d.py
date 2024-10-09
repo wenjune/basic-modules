@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-30 21:38:00
+LastEditTime: 2024-10-10 01:26:04
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -120,13 +120,12 @@ class AdaLNDiTBlock(nn.Module):
         
         # all params shape [bs, dim]
         gama1, beta1, alpha1, gama2, beta2, alpha2 = self.adaLN_modulation(cond).chunk(6, dim=-1)
+        
         residual = x
         x = modulate(self.norm1(x), shift=gama1, scale=beta1)
-        x = self.attn(query=x, key=x, value=x, need_weights=False)[0]
-        x = residual + alpha1 * x
-        residual = x
-        x = modulate(self.norm2(x), shift=gama2, scale=beta2)
-        x = residual + alpha2 * self.mlp(x)
+        x = residual + alpha1 * self.attn(query=x, key=x, value=x, need_weights=False)[0]
+
+        x = x + alpha2 * self.mlp(modulate(self.norm2(x), shift=gama2, scale=beta2))
         
         return x
 
@@ -180,12 +179,12 @@ class CroAttnDitBlock(nn.Module):
         residual = x
         x = self.norm1(x)
         x = residual + self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
+        
         residual = x
         x = self.norm2(x)
         x = residual + self.cross_attn(query=x, key=cond, value=cond, need_weights=False)[0]
-        residual = x
-        x = self.norm3(x)
-        x = residual + self.mlp(x)
+
+        x = x + self.mlp(self.norm3(x))
         
         return x
 
@@ -231,14 +230,13 @@ class InContextDiTBlock(nn.Module):
         sl = x.shape[1]  # valid sequence length
         
         # calculate attention scores with context
-        x = torch.cat([x, cond], dim=1)  # x->[bs, sl+1, dim]
+        x = torch.cat([x, cond], dim=1)  # x->[bs, sl+c, dim]
+        
         residual = x
         x = self.norm1(x)
-        x = self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
-        x = residual + x
-        residual = x
-        x = self.norm2(x)
-        x = residual + self.mlp(x)
+        x = residual + self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
+        
+        x = x + self.mlp(self.norm2(x))
         
         return x[:, :sl, :]
         
