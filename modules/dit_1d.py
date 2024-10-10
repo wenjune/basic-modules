@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-10-10 01:26:04
+LastEditTime: 2024-10-10 16:53:06
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -295,15 +295,12 @@ class DiT(nn.Module):
         attn_dropout: float=0.0,
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
-        learn_sigma: bool=False,
         block = AdaLNDiTBlock,
     ):
         super(DiT, self).__init__()
         
         self.dim = dim
-        self.out_dim = 2 * dim if learn_sigma else dim
         self.block = block
-        self.learn_sigma = learn_sigma
         
         self.blocks = nn.ModuleList([block(
             dim=self.dim,
@@ -316,7 +313,7 @@ class DiT(nn.Module):
 
         self.final_layer = FinalLayer(
             dim=self.dim,
-            out_dim=self.out_dim,
+            out_dim=dim,
         )
         
         self.initialize_weights()
@@ -369,11 +366,6 @@ class DiT(nn.Module):
             x = block(x, cond)
         
         out = self.final_layer(x, cond)
-        # if learn_sigma: output: [bs, sl, 2*dim] {noise, sigma}
-        # else: output: [bs, sl, dim] {noise}
-        if self.learn_sigma:
-            noise, sigma = out.chunk(2, dim=-1)
-            return noise, sigma
         
         return out
 
@@ -387,7 +379,6 @@ def DiT_1d_AdaLNDiTBlock(
     attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
-    learn_sigma: bool=False,
 ):
     
     return DiT(
@@ -398,7 +389,6 @@ def DiT_1d_AdaLNDiTBlock(
         attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
-        learn_sigma=learn_sigma,
         block=AdaLNDiTBlock,
     )
 
@@ -411,7 +401,6 @@ def DiT_1d_CroAttnDitBlock(
     attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
-    learn_sigma: bool=False,
 ):
     
     return DiT(
@@ -422,7 +411,6 @@ def DiT_1d_CroAttnDitBlock(
         attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
-        learn_sigma=learn_sigma,
         block=CroAttnDitBlock,
     )
 
@@ -435,7 +423,6 @@ def DiT_1d_InContextDiTBlock(
     attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
-    learn_sigma: bool=False,
 ):
     
     return DiT(
@@ -446,6 +433,5 @@ def DiT_1d_InContextDiTBlock(
         attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
-        learn_sigma=learn_sigma,
         block=InContextDiTBlock,
     )

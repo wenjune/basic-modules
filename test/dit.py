@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-14 02:26:47
 LastEditors: wenjun-VCC
-LastEditTime: 2024-06-14 04:05:00
+LastEditTime: 2024-10-10 16:53:58
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -73,13 +73,11 @@ def test_dit():
     model = DiT(
         dim=128,
         nheads=8,
-        learn_sigma=True,
         block=CroAttnDitBlock,
     )
     
-    noise, sigma = model(x, t_embed, context)
+    noise = model(x, t_embed, context)
     print(noise.shape)  # [bs, sl, dim]
-    print(sigma.shape)  # [bs, sl, dim]
     print('DiT test passed!')
 
 
@@ -91,7 +89,6 @@ def test_DiT_1d():
 
     model1 = DiT_1d_AdaLNDiTBlock(
         dim=128,
-        learn_sigma=False,
     )
     noise = model1(x, t_embed, context)
     print(noise.shape)  # [bs, sl, dim]
@@ -99,20 +96,16 @@ def test_DiT_1d():
     
     model2 = DiT_1d_CroAttnDitBlock(
         dim=128,
-        learn_sigma=True,
     )
-    noise, sigma = model2(x, t_embed, context)
+    noise = model2(x, t_embed, context)
     print(noise.shape)  # [bs, sl, dim]
-    print(sigma.shape)  # [bs, sl, dim]
     print('DiT_1d_CroAttnDitBlock test passed!')
     
     model3 = DiT_1d_InContextDiTBlock(
         dim=128,
-        learn_sigma=True,
     )
-    noise, sigma = model3(x, t_embed, context)
+    noise = model3(x, t_embed, context)
     print(noise.shape)  # [bs, sl, dim]
-    print(sigma.shape)  # [bs, sl, dim]
     print('DiT_1d_InContextDiTBlock test passed!')
 
 
