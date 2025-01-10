@@ -2,7 +2,7 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
-LastEditTime: 2024-09-30 21:38:00
+LastEditTime: 2024-10-09 15:16:46
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -241,8 +241,8 @@ class InContextDiTBlock(nn.Module):
         x = residual + self.mlp(x)
         
         return x[:, :sl, :]
-        
-        
+  
+
 
 class FinalLayer(nn.Module):
     """
