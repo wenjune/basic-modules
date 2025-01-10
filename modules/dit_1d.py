@@ -2,7 +2,11 @@
 Author: wenjun-VCC
 Date: 2024-06-13 17:31:17
 LastEditors: wenjun-VCC
+<<<<<<< HEAD
 LastEditTime: 2024-10-09 15:16:46
+=======
+LastEditTime: 2024-10-10 16:53:06
+>>>>>>> 88b750596451efcd6486a2ff3b826889dd35420b
 Description: __discription:__
 Email: wenjun.9707@gmail.com
 Copyright (c) 2024 by wenjun/VCC, All Rights Reserved. 
@@ -120,13 +124,12 @@ class AdaLNDiTBlock(nn.Module):
         
         # all params shape [bs, dim]
         gama1, beta1, alpha1, gama2, beta2, alpha2 = self.adaLN_modulation(cond).chunk(6, dim=-1)
+        
         residual = x
         x = modulate(self.norm1(x), shift=gama1, scale=beta1)
-        x = self.attn(query=x, key=x, value=x, need_weights=False)[0]
-        x = residual + alpha1 * x
-        residual = x
-        x = modulate(self.norm2(x), shift=gama2, scale=beta2)
-        x = residual + alpha2 * self.mlp(x)
+        x = residual + alpha1 * self.attn(query=x, key=x, value=x, need_weights=False)[0]
+
+        x = x + alpha2 * self.mlp(modulate(self.norm2(x), shift=gama2, scale=beta2))
         
         return x
 
@@ -180,12 +183,12 @@ class CroAttnDitBlock(nn.Module):
         residual = x
         x = self.norm1(x)
         x = residual + self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
+        
         residual = x
         x = self.norm2(x)
         x = residual + self.cross_attn(query=x, key=cond, value=cond, need_weights=False)[0]
-        residual = x
-        x = self.norm3(x)
-        x = residual + self.mlp(x)
+
+        x = x + self.mlp(self.norm3(x))
         
         return x
 
@@ -231,14 +234,13 @@ class InContextDiTBlock(nn.Module):
         sl = x.shape[1]  # valid sequence length
         
         # calculate attention scores with context
-        x = torch.cat([x, cond], dim=1)  # x->[bs, sl+1, dim]
+        x = torch.cat([x, cond], dim=1)  # x->[bs, sl+c, dim]
+        
         residual = x
         x = self.norm1(x)
-        x = self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
-        x = residual + x
-        residual = x
-        x = self.norm2(x)
-        x = residual + self.mlp(x)
+        x = residual + self.self_attn(query=x, key=x, value=x, need_weights=False)[0]
+        
+        x = x + self.mlp(self.norm2(x))
         
         return x[:, :sl, :]
   
@@ -297,15 +299,12 @@ class DiT(nn.Module):
         attn_dropout: float=0.0,
         mlp_hidden_dim: int=2048,
         qkv_bias: bool=False,
-        learn_sigma: bool=False,
         block = AdaLNDiTBlock,
     ):
         super(DiT, self).__init__()
         
         self.dim = dim
-        self.out_dim = 2 * dim if learn_sigma else dim
         self.block = block
-        self.learn_sigma = learn_sigma
         
         self.blocks = nn.ModuleList([block(
             dim=self.dim,
@@ -318,7 +317,7 @@ class DiT(nn.Module):
 
         self.final_layer = FinalLayer(
             dim=self.dim,
-            out_dim=self.out_dim,
+            out_dim=dim,
         )
         
         self.initialize_weights()
@@ -371,11 +370,6 @@ class DiT(nn.Module):
             x = block(x, cond)
         
         out = self.final_layer(x, cond)
-        # if learn_sigma: output: [bs, sl, 2*dim] {noise, sigma}
-        # else: output: [bs, sl, dim] {noise}
-        if self.learn_sigma:
-            noise, sigma = out.chunk(2, dim=-1)
-            return noise, sigma
         
         return out
 
@@ -389,7 +383,6 @@ def DiT_1d_AdaLNDiTBlock(
     attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
-    learn_sigma: bool=False,
 ):
     
     return DiT(
@@ -400,7 +393,6 @@ def DiT_1d_AdaLNDiTBlock(
         attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
-        learn_sigma=learn_sigma,
         block=AdaLNDiTBlock,
     )
 
@@ -413,7 +405,6 @@ def DiT_1d_CroAttnDitBlock(
     attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
-    learn_sigma: bool=False,
 ):
     
     return DiT(
@@ -424,7 +415,6 @@ def DiT_1d_CroAttnDitBlock(
         attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
-        learn_sigma=learn_sigma,
         block=CroAttnDitBlock,
     )
 
@@ -437,7 +427,6 @@ def DiT_1d_InContextDiTBlock(
     attn_dropout: float=0.0,
     mlp_hidden_dim: int=2048,
     qkv_bias: bool=False,
-    learn_sigma: bool=False,
 ):
     
     return DiT(
@@ -448,6 +437,5 @@ def DiT_1d_InContextDiTBlock(
         attn_dropout=attn_dropout,
         mlp_hidden_dim=mlp_hidden_dim,
         qkv_bias=qkv_bias,
-        learn_sigma=learn_sigma,
         block=InContextDiTBlock,
     )
